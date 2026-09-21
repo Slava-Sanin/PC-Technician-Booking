@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, LogIn, Settings } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
@@ -19,6 +19,8 @@ interface AdminViewProps {
   onLogout: () => void;
 }
 
+type Access = 'loading' | 'anonymous' | 'staff' | 'denied';
+
 const FIELD_MESSAGE: Partial<Record<EditableBookingField, string>> = {
   appointment_date: 'appointmentDateUpdated',
   first_name: 'firstNameUpdated',
@@ -33,35 +35,41 @@ const FIELD_MESSAGE: Partial<Record<EditableBookingField, string>> = {
 
 export function AdminView({ onLogout }: AdminViewProps) {
   const { t } = useTranslation();
-  const [authLoading, setAuthLoading] = useState(true);
-  const [authenticated, setAuthenticated] = useState(false);
+  const [access, setAccess] = useState<Access>('loading');
   const [profile, setProfile] = useState<StaffProfile | null>(null);
+  const accessRequest = useRef(0);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
-  const staff = isActiveStaff(profile);
+  const staff = access === 'staff';
   const bookingsState = useBookings(staff);
   const settingsState = useBookingSettings(staff);
 
   useEffect(() => {
+    const requestId = ++accessRequest.current;
+
     const loadSession = async () => {
       const { data, error } = await supabase.auth.getSession();
+      if (accessRequest.current !== requestId) return;
+
       if (error || !data.session) {
-        setAuthenticated(false);
         setProfile(null);
-        setAuthLoading(false);
+        setAccess('anonymous');
         return;
       }
 
-      setAuthenticated(true);
       try {
-        setProfile(await fetchMyProfile());
+        const nextProfile = await fetchMyProfile();
+        if (accessRequest.current !== requestId) return;
+        setProfile(nextProfile);
+        setAccess(isActiveStaff(nextProfile) ? 'staff' : 'denied');
       } catch {
+        if (accessRequest.current !== requestId) return;
         toast.error(t('fetchError'));
-      } finally {
-        setAuthLoading(false);
+        setProfile(null);
+        setAccess('denied');
       }
     };
 
@@ -83,10 +91,24 @@ export function AdminView({ onLogout }: AdminViewProps) {
         toast.error(error.message === 'Invalid login credentials' ? t('invalidCredentials') : t('loginError'));
         return;
       }
-      setAuthenticated(true);
-      setProfile(await fetchMyProfile());
+
+      const requestId = ++accessRequest.current;
+      setAccess('loading');
+      try {
+        const nextProfile = await fetchMyProfile();
+        if (accessRequest.current !== requestId) return;
+        setProfile(nextProfile);
+        setAccess(isActiveStaff(nextProfile) ? 'staff' : 'denied');
+      } catch {
+        if (accessRequest.current !== requestId) return;
+        toast.error(t('fetchError'));
+        setProfile(null);
+        setAccess('denied');
+      }
     } catch {
       toast.error(t('loginError'));
+      setProfile(null);
+      setAccess('anonymous');
     } finally {
       setLoginLoading(false);
     }
@@ -94,9 +116,10 @@ export function AdminView({ onLogout }: AdminViewProps) {
 
   const handleLogout = async () => {
     try {
+      accessRequest.current += 1;
       await supabase.auth.signOut();
-      setAuthenticated(false);
       setProfile(null);
+      setAccess('anonymous');
       onLogout();
     } catch {
       toast.error(t('logoutError'));
@@ -131,7 +154,7 @@ export function AdminView({ onLogout }: AdminViewProps) {
     }
   };
 
-  if (authLoading || (staff && !bookingsState.loaded)) {
+  if (access === 'loading' || (staff && !bookingsState.loaded)) {
     return (
       <div className="flex justify-center items-center h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -139,7 +162,7 @@ export function AdminView({ onLogout }: AdminViewProps) {
     );
   }
 
-  if (!authenticated) {
+  if (access === 'anonymous') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
         <Toaster position="top-right" />
