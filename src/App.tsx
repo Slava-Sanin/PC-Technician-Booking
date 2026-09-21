@@ -1,12 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import Calendar from 'react-calendar';
 import { toast, Toaster } from 'react-hot-toast';
-import { Globe, Clock, WrenchIcon } from 'lucide-react';
-import { supabase } from './lib/supabase';
-import { sendSMS } from './lib/twilioSender';
-import { AdminView } from './components/AdminView';
+import { Clock, Globe, WrenchIcon } from 'lucide-react';
+import { AdminView } from './components/admin/AdminView';
+import { LanguageSwitcher } from './components/LanguageSwitcher';
+import { useAvailability, useMonthAvailability } from './hooks/useAvailability';
+import { useDocumentDirection } from './hooks/useDocumentDirection';
+import { createBooking, fetchPublicBookingConfig } from './services/publicApi';
+import type { CreateBookingRequest } from './types/api';
+import type { PublicBookingConfig } from './types/bookingSettings';
+import {
+  BUSINESS_TIME_ZONE,
+  calendarDateFromISO,
+  formatCivilDate,
+  monthKeyFromDate,
+  todayISOInTimeZone,
+} from './utils/dateTime';
+import { BookingApiError, errorI18nKey } from './utils/errors';
+import { validateBookingInput } from './utils/validation';
 import 'react-calendar/dist/Calendar.css';
+
+const OPERATING_SYSTEMS = ['windows', 'linux', 'macos'] as const;
 
 type BookingFormData = {
   firstName: string;
@@ -16,331 +31,128 @@ type BookingFormData = {
   city: string;
   operatingSystem: string;
   comments: string;
-  appointmentDate: Date | null;
+  appointmentDate: string;
   appointmentTime: string;
 };
 
-const OPERATING_SYSTEMS = ['windows', 'linux', 'macos'];
-
-// Generate time slots based on work hours
-const generateTimeSlots = (startTime: string, endTime: string): string[] => {
-  const slots: string[] = [];
-  const [startHour, startMinute] = startTime.split(':').map(Number);
-  const [endHour, endMinute] = endTime.split(':').map(Number);
-  
-  const startMinutes = startHour * 60 + startMinute;
-  const endMinutes = endHour * 60 + endMinute;
-  
-  for (let minutes = startMinutes; minutes <= endMinutes; minutes += 60) {
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    slots.push(`${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`);
-  }
-  
-  return slots;
+const EMPTY_FORM: BookingFormData = {
+  firstName: '',
+  lastName: '',
+  phone: '',
+  address: '',
+  city: '',
+  operatingSystem: '',
+  comments: '',
+  appointmentDate: '',
+  appointmentTime: '',
 };
 
 function App() {
   const { t, i18n } = useTranslation();
+  useDocumentDirection();
   const [showAdmin, setShowAdmin] = useState(false);
-  const [formData, setFormData] = useState<BookingFormData>({
-    firstName: '',
-    lastName: '',
-    phone: '',
-    address: '',
-    city: '',
-    operatingSystem: '',
-    comments: '',
-    appointmentDate: null,
-    appointmentTime: ''
-  });
-  const [bookedSlots, setBookedSlots] = useState<Date[]>([]);
-  const [availableTimeSlots, setAvailableTimeSlots] = useState<string[]>([]);
+  const [formData, setFormData] = useState<BookingFormData>(EMPTY_FORM);
+  const [config, setConfig] = useState<PublicBookingConfig | null>(null);
+  const [configError, setConfigError] = useState(false);
+  const [configLoading, setConfigLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [settings, setSettings] = useState({
-    firstDayOfWeek: 1,
-    disabledWeekdays: [] as number[],
-    disabledDates: [] as string[],
-    minIntervalHours: 3, // Minimum interval between bookings in hours
-    workStartTime: '09:00', // Work start time (HH:mm format)
-    workEndTime: '20:00', // Work end time (HH:mm format)
-    maxBookingsPerDay: null as number | null, // Maximum bookings per day (null = no limit)
-    sendSMS: true // Send SMS when booking is created
-  });
+  const [visibleMonth, setVisibleMonth] = useState(() => calendarDateFromISO(todayISOInTimeZone(BUSINESS_TIME_ZONE)));
 
-  const getCalendarLocale = () => {
-    const lang = i18n.language?.split('-')[0] || i18n.language || 'ru';
-    // Map language codes to calendar locales
-    const localeMap: Record<string, string> = {
-      'ru': 'ru',
-      'en': 'en',
-      'he': 'he'
-    };
-    return localeMap[lang] || 'en';
-  };
+  const timeZone = config?.timezone || BUSINESS_TIME_ZONE;
+  const today = todayISOInTimeZone(timeZone);
+  const availability = useAvailability(formData.appointmentDate || null);
+  const monthAvailability = useMonthAvailability(config ? monthKeyFromDate(visibleMonth) : null);
 
-  useEffect(() => {
-    fetchBookedSlots();
-    loadSettings();
-  }, []);
-
-  const loadSettings = () => {
-    const savedSettings = localStorage.getItem('bookingSettings');
-    if (savedSettings) {
-      try {
-        const parsed = JSON.parse(savedSettings);
-        // Merge with defaults to ensure all new fields are present
-        setSettings({
-          firstDayOfWeek: parsed.firstDayOfWeek ?? 1,
-          disabledWeekdays: parsed.disabledWeekdays ?? [],
-          disabledDates: parsed.disabledDates ?? [],
-          minIntervalHours: parsed.minIntervalHours ?? 3,
-          workStartTime: parsed.workStartTime ?? '09:00',
-          workEndTime: parsed.workEndTime ?? '20:00',
-          maxBookingsPerDay: parsed.maxBookingsPerDay ?? null,
-          sendSMS: parsed.sendSMS ?? true
-        });
-      } catch (e) {
-        console.error('Error loading settings:', e);
-      }
+  const loadConfig = useCallback(async () => {
+    setConfigLoading(true);
+    setConfigError(false);
+    try {
+      const next = await fetchPublicBookingConfig();
+      setConfig(next);
+      setVisibleMonth(calendarDateFromISO(todayISOInTimeZone(next.timezone)));
+    } catch {
+      setConfig(null);
+      setConfigError(true);
+    } finally {
+      setConfigLoading(false);
     }
-  };
-
-  // Listen for settings changes
-  useEffect(() => {
-    const handleStorageChange = () => {
-      loadSettings();
-    };
-    window.addEventListener('storage', handleStorageChange);
-    // Also check periodically for changes (in case settings changed in same window)
-    const interval = setInterval(loadSettings, 500);
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
   }, []);
 
   useEffect(() => {
-    if (formData.appointmentDate) {
-      updateAvailableTimeSlots(formData.appointmentDate);
-    }
-  }, [formData.appointmentDate, bookedSlots, settings]);
+    void loadConfig();
+  }, [loadConfig]);
 
-  // Refresh booked slots when returning from admin view
   useEffect(() => {
-    if (!showAdmin) {
-      fetchBookedSlots();
+    if (formData.appointmentTime && !availability.slots.includes(formData.appointmentTime)) {
+      setFormData((current) => ({ ...current, appointmentTime: '' }));
     }
-  }, [showAdmin]);
+  }, [availability.slots, formData.appointmentTime]);
 
-  const fetchBookedSlots = async () => {
-    const { data } = await supabase
-      .from('bookings')
-      .select('appointment_date')
-      .is('deleted_at', null);
-    
-    if (data) {
-      setBookedSlots(data.map(booking => new Date(booking.appointment_date)));
-    }
+  const locale = (i18n.resolvedLanguage || i18n.language || 'ru').split('-')[0];
+  const calendarLocale = locale === 'ru' || locale === 'he' || locale === 'en' ? locale : 'en';
+
+  const isDateDisabled = ({ date }: { date: Date }) => {
+    if (!config) return true;
+    const iso = formatCivilDate(date);
+    if (iso < todayISOInTimeZone(config.timezone)) return true;
+    if (config.disabledWeekdays.includes(date.getDay())) return true;
+    if (config.disabledDates.includes(iso)) return true;
+    const slots = monthAvailability.days[iso];
+    return Array.isArray(slots) && slots.length === 0;
   };
 
-  const updateAvailableTimeSlots = (selectedDate: Date) => {
-    // Generate time slots based on work hours from settings
-    const timeSlots = generateTimeSlots(
-      settings?.workStartTime || '09:00',
-      settings?.workEndTime || '20:00'
-    );
-    
-    const minIntervalMs = (settings?.minIntervalHours || 3) * 60 * 60 * 1000;
-    
-    const available = timeSlots.filter(time => {
-      const [hours, minutes] = time.split(':').map(Number);
-      const timeToCheck = new Date(selectedDate);
-      timeToCheck.setHours(hours, minutes, 0, 0);
-
-      return !bookedSlots.some(bookedSlot => {
-        const diff = Math.abs(timeToCheck.getTime() - bookedSlot.getTime());
-        return diff < minIntervalMs;
-      });
-    });
-
-    setAvailableTimeSlots(available);
-  };
-
-  const changeLanguage = (lng: string) => {
-    i18n.changeLanguage(lng);
-  };
-
-  const getCurrentLanguage = () => {
-    return i18n.language?.split('-')[0] || i18n.language || 'ru';
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
     if (!formData.appointmentDate || !formData.appointmentTime) {
       toast.error(t('selectDateTime'));
       return;
     }
 
+    const request: CreateBookingRequest = {
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      phone: formData.phone,
+      address: formData.address,
+      city: formData.city,
+      operatingSystem: formData.operatingSystem,
+      comments: formData.comments,
+      appointmentDate: formData.appointmentDate,
+      appointmentTime: formData.appointmentTime,
+      locale: locale === 'he' || locale === 'en' ? locale : 'ru',
+    };
+
+    if (!validateBookingInput(request)) {
+      toast.error(t('error_INVALID_INPUT'));
+      return;
+    }
+
     setIsSubmitting(true);
-
     try {
-      const appointmentDateTime = new Date(formData.appointmentDate);
-      const [hours, minutes] = formData.appointmentTime.split(':').map(Number);
-      appointmentDateTime.setHours(hours, minutes, 0, 0);
-
-      const { data, error } = await supabase
-        .from('bookings')
-        .insert([
-          {
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            phone: formData.phone,
-            address: formData.address,
-            city: formData.city || null,
-            operating_system: formData.operatingSystem,
-            comments: formData.comments,
-            appointment_date: appointmentDateTime.toISOString()
-          }
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      const bookingNumber = data.booking_number || data.id.slice(0, 8);
+      const result = await createBooking(request);
+      if (!result?.bookingNumber) {
+        throw new BookingApiError('INTERNAL_ERROR');
+      }
       toast.success(
         <div>
           {t('bookingSuccess')}
           <br />
-          {t('bookingNumber')}: <strong>{bookingNumber}</strong>
-        </div>
+          {t('bookingNumber')}: <strong>{result.bookingNumber}</strong>
+        </div>,
       );
-
-      // Send SMS only if enabled in settings
-      if (settings?.sendSMS !== false) {
-        const smsMessage = `${t('smsGreeting')}, ${formData.firstName}! ${t('smsBookingCreated')} #${bookingNumber} ${t('smsAppointmentInfo')} ${appointmentDateTime.toLocaleString()}. ${t('smsContact')}`;
-
-        try {
-          const smsResult = await sendSMS(formData.phone, smsMessage);
-          
-          if (!smsResult.success) {
-            console.error('SMS sending failed:', smsResult.error);
-            toast(
-              <div>
-                {t('smsError')}
-                <br />
-                <small style={{ fontSize: '0.85em', opacity: 0.8 }}>
-                  {smsResult.error}
-                </small>
-              </div>,
-              { 
-                icon: '⚠️',
-                duration: 15000
-              }
-            );
-          }
-        } catch (smsError) {
-          console.error('SMS sending exception:', smsError);
-          toast(
-            <div>
-              {t('smsError')}
-              <br />
-              <small style={{ fontSize: '0.85em', opacity: 0.8 }}>
-                {smsError instanceof Error ? smsError.message : 'Unknown error'}
-              </small>
-            </div>,
-            { 
-              icon: '⚠️',
-              duration: 15000
-            }
-          );
-        }
+      if (result.smsSent === false && result.smsSkipped === false) {
+        toast(t('smsError'), { icon: '⚠️', duration: 8000 });
       }
-      setFormData({
-        firstName: '',
-        lastName: '',
-        phone: '',
-        address: '',
-        city: '',
-        operatingSystem: '',
-        comments: '',
-        appointmentDate: null,
-        appointmentTime: ''
-      });
-      
-      // Refresh booked slots
-      fetchBookedSlots();
+      setFormData(EMPTY_FORM);
+      await Promise.all([availability.refresh(), monthAvailability.refresh()]);
     } catch (error) {
-      console.error('Booking error:', error);
-      toast.error(t('error'));
+      const code = error instanceof BookingApiError ? error.code : 'INTERNAL_ERROR';
+      toast.error(t(errorI18nKey(code)));
+      if (code === 'SLOT_UNAVAILABLE' || code === 'DAILY_LIMIT_REACHED') {
+        await Promise.all([availability.refresh(), monthAvailability.refresh()]);
+      }
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  // Helper function to format date to YYYY-MM-DD in local time
-  const formatDateToYYYYMMDD = (date: Date): string => {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const isDateDisabled = ({ date }: { date: Date }) => {
-    // Disable past dates
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const checkDate = new Date(date);
-    checkDate.setHours(0, 0, 0, 0);
-    if (checkDate < today) return true;
-
-    // Check disabled weekdays
-    const dayOfWeek = date.getDay();
-    if (settings?.disabledWeekdays?.includes(dayOfWeek)) return true;
-
-    // Check disabled dates - use local time to avoid timezone issues
-    const dateStr = formatDateToYYYYMMDD(date);
-    if (settings?.disabledDates?.includes(dateStr)) return true;
-
-    // Check maximum bookings per day
-    if (settings?.maxBookingsPerDay !== null && settings?.maxBookingsPerDay !== undefined) {
-      const dateStart = new Date(date);
-      dateStart.setHours(0, 0, 0, 0);
-      const dateEnd = new Date(date);
-      dateEnd.setHours(23, 59, 59, 999);
-      
-      const bookingsOnDate = bookedSlots.filter(bookedSlot => {
-        const slotDate = new Date(bookedSlot);
-        return slotDate >= dateStart && slotDate <= dateEnd;
-      }).length;
-      
-      if (bookingsOnDate >= settings.maxBookingsPerDay) {
-        return true;
-      }
-    }
-
-    // Check if there are any available time slots for this date
-    const timeSlots = generateTimeSlots(
-      settings?.workStartTime || '09:00',
-      settings?.workEndTime || '20:00'
-    );
-    const minIntervalMs = (settings?.minIntervalHours || 3) * 60 * 60 * 1000;
-    
-    const hasAvailableSlots = timeSlots.some(time => {
-      const [hours, minutes] = time.split(':').map(Number);
-      const timeToCheck = new Date(date);
-      timeToCheck.setHours(hours, minutes, 0, 0);
-
-      return !bookedSlots.some(bookedSlot => {
-        const diff = Math.abs(timeToCheck.getTime() - bookedSlot.getTime());
-        return diff < minIntervalMs;
-      });
-    });
-
-    // Disable date if no available time slots
-    return !hasAvailableSlots;
   };
 
   if (showAdmin) {
@@ -350,42 +162,11 @@ function App() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Toaster position="top-right" />
-      
-      {/* Language Switcher and Admin Toggle */}
-      <div className="fixed top-4 right-4 flex gap-2">
-        <button onClick={() => setShowAdmin(true)} className="px-3 py-1 rounded bg-white shadow hover:bg-gray-100">
+      <div className="fixed top-4 end-4 flex gap-2">
+        <button type="button" onClick={() => setShowAdmin(true)} className="px-3 py-1 rounded bg-white shadow hover:bg-gray-100">
           <WrenchIcon className="w-4 h-4" />
         </button>
-        <button 
-          onClick={() => changeLanguage('ru')} 
-          className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-            getCurrentLanguage() === 'ru' 
-              ? 'bg-blue-600 text-white shadow' 
-              : 'bg-white text-gray-700 hover:bg-gray-100 shadow'
-          }`}
-        >
-          RU
-        </button>
-        <button 
-          onClick={() => changeLanguage('he')} 
-          className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-            getCurrentLanguage() === 'he' 
-              ? 'bg-blue-600 text-white shadow' 
-              : 'bg-white text-gray-700 hover:bg-gray-100 shadow'
-          }`}
-        >
-          HE
-        </button>
-        <button 
-          onClick={() => changeLanguage('en')} 
-          className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-            getCurrentLanguage() === 'en' 
-              ? 'bg-blue-600 text-white shadow' 
-              : 'bg-white text-gray-700 hover:bg-gray-100 shadow'
-          }`}
-        >
-          EN
-        </button>
+        <LanguageSwitcher />
       </div>
 
       <div className="container mx-auto px-4 py-8">
@@ -396,130 +177,153 @@ function App() {
           </div>
           <p className="text-gray-600 mb-8">{t('subtitle')}</p>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">{t('firstName')} *</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.firstName}
-                  onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                />
-              </div>
+          {configLoading && <p className="text-sm text-gray-500 mb-4">{t('loading')}</p>}
+          {configError && (
+            <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              <p>{t('configLoadError')}</p>
+              <button type="button" onClick={() => void loadConfig()} className="mt-2 underline">
+                {t('retry')}
+              </button>
+            </div>
+          )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700">{t('lastName')} *</label>
+          <form onSubmit={(event) => void handleSubmit(event)} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <label className="block text-sm font-medium text-gray-700">
+                {t('firstName')} *
                 <input
                   type="text"
                   required
-                  value={formData.lastName}
-                  onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
-                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  maxLength={80}
+                  value={formData.firstName}
+                  onChange={(event) => setFormData((current) => ({ ...current, firstName: event.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                 />
-              </div>
+              </label>
+              <label className="block text-sm font-medium text-gray-700">
+                {t('lastName')} *
+                <input
+                  type="text"
+                  required
+                  maxLength={80}
+                  value={formData.lastName}
+                  onChange={(event) => setFormData((current) => ({ ...current, lastName: event.target.value }))}
+                  className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
+                />
+              </label>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">{t('phone')} *</label>
+            <label className="block text-sm font-medium text-gray-700">
+              {t('phone')} *
               <input
                 type="tel"
                 required
                 value={formData.phone}
-                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                onChange={(event) => setFormData((current) => ({ ...current, phone: event.target.value }))}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
               />
-            </div>
+            </label>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">{t('city')}</label>
+            <label className="block text-sm font-medium text-gray-700">
+              {t('city')}
               <input
                 type="text"
+                maxLength={80}
                 value={formData.city}
-                onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                onChange={(event) => setFormData((current) => ({ ...current, city: event.target.value }))}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
               />
-            </div>
+            </label>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">{t('address')} *</label>
+            <label className="block text-sm font-medium text-gray-700">
+              {t('address')} *
               <input
                 type="text"
                 required
+                maxLength={200}
                 value={formData.address}
-                onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                onChange={(event) => setFormData((current) => ({ ...current, address: event.target.value }))}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
               />
-            </div>
+            </label>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">{t('operatingSystem')} *</label>
+            <label className="block text-sm font-medium text-gray-700">
+              {t('operatingSystem')} *
               <select
                 required
                 value={formData.operatingSystem}
-                onChange={(e) => setFormData(prev => ({ ...prev, operatingSystem: e.target.value }))}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                onChange={(event) => setFormData((current) => ({ ...current, operatingSystem: event.target.value }))}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
               >
                 <option value="">{t('selectOs')}</option>
-                {OPERATING_SYSTEMS.map(os => (
+                {OPERATING_SYSTEMS.map((os) => (
                   <option key={os} value={os}>{t(os)}</option>
                 ))}
               </select>
-            </div>
+            </label>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700">{t('comments')}</label>
+            <label className="block text-sm font-medium text-gray-700">
+              {t('comments')}
               <textarea
+                maxLength={1000}
                 value={formData.comments}
-                onChange={(e) => setFormData(prev => ({ ...prev, comments: e.target.value }))}
-                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                onChange={(event) => setFormData((current) => ({ ...current, comments: event.target.value }))}
+                className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                 rows={3}
               />
-            </div>
+            </label>
 
             <div className="space-y-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4" />
-                  {t('appointmentDate')} *
-                </div>
-              </label>
+              <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                <Clock className="w-4 h-4" />
+                {t('appointmentDate')} *
+              </div>
               <Calendar
-                key={`${bookedSlots.length}-${settings?.firstDayOfWeek || 1}-${settings?.disabledWeekdays?.join(',') || ''}-${settings?.disabledDates?.join(',') || ''}-${settings?.minIntervalHours || 3}-${settings?.workStartTime || '09:00'}-${settings?.workEndTime || '20:00'}-${settings?.maxBookingsPerDay ?? 'null'}-${i18n.language}`}
-                onChange={(date) => setFormData(prev => ({ ...prev, appointmentDate: date as Date, appointmentTime: '' }))}
-                value={formData.appointmentDate}
-                minDate={new Date()}
+                onChange={(date) => {
+                  const selected = Array.isArray(date) ? date[0] : date;
+                  setFormData((current) => ({
+                    ...current,
+                    appointmentDate: selected ? formatCivilDate(selected) : '',
+                    appointmentTime: '',
+                  }));
+                }}
+                onActiveStartDateChange={({ activeStartDate }) => {
+                  if (activeStartDate) setVisibleMonth(activeStartDate);
+                }}
+                value={formData.appointmentDate ? calendarDateFromISO(formData.appointmentDate) : null}
+                activeStartDate={visibleMonth}
+                minDate={calendarDateFromISO(today)}
                 tileDisabled={isDateDisabled}
-                locale={getCalendarLocale()}
-                calendarType={settings?.firstDayOfWeek === 0 ? 'gregory' : undefined}
+                locale={calendarLocale}
+                calendarType={config?.firstDayOfWeek === 0 ? 'gregory' : undefined}
                 className="w-full border rounded-lg p-4"
               />
 
               {formData.appointmentDate && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('appointmentTime')} *
-                  </label>
+                <label className="block text-sm font-medium text-gray-700">
+                  {t('appointmentTime')} *
                   <select
                     required
                     value={formData.appointmentTime}
-                    onChange={(e) => setFormData(prev => ({ ...prev, appointmentTime: e.target.value }))}
-                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    onChange={(event) => setFormData((current) => ({ ...current, appointmentTime: event.target.value }))}
+                    className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2"
                   >
-                    <option value="">{t('selectTime')}</option>
-                    {availableTimeSlots.map(time => (
+                    <option value="">{availability.loading ? t('loading') : t('selectTime')}</option>
+                    {availability.slots.map((time) => (
                       <option key={time} value={time}>{time}</option>
                     ))}
                   </select>
-                </div>
+                  {!availability.loading && availability.slots.length === 0 && (
+                    <span className="mt-1 block text-sm text-gray-500">{t('noAvailableSlots')}</span>
+                  )}
+                </label>
               )}
             </div>
 
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isSubmitting || configLoading || !config}
+              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? t('submitting') : t('submit')}
             </button>
