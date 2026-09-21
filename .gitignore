@@ -19,6 +19,9 @@ dist-ssr
 .env.production
 !.env.example
 
+# Local Supabase CLI link cache
+supabase/.temp/linked-project.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
