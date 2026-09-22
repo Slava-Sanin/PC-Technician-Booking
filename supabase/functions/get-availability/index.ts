@@ -8,6 +8,12 @@ function publicPayload(result: Record<string, unknown>): Record<string, unknown>
   return payload;
 }
 
+function serviceIds(value: unknown): string[] | null {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 12) return null;
+  if (!value.every((item) => typeof item === 'string' && /^[0-9a-f-]{36}$/i.test(item))) return null;
+  return value;
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -19,7 +25,7 @@ Deno.serve(async (req) => {
 
   try {
     const raw = await req.text();
-    if (raw.length > 2000) {
+    if (raw.length > 8000) {
       return json({ error: 'INVALID_INPUT' }, 400);
     }
 
@@ -30,13 +36,23 @@ Deno.serve(async (req) => {
 
     const date = typeof body.date === 'string' ? body.date : '';
     const month = typeof body.month === 'string' ? body.month : '';
-    if ((date && month) || (!date && !month)) {
+    const serviceMode = typeof body.serviceMode === 'string' ? body.serviceMode : '';
+    const ids = serviceIds(body.serviceIds);
+    if ((date && month) || (!date && !month) || !ids) {
       return json({ error: 'INVALID_INPUT' }, 400);
     }
 
     const result = date
-      ? await supabaseRpc('get_availability', { p_date: date })
-      : await supabaseRpc('get_month_availability', { p_month: month });
+      ? await supabaseRpc('get_availability', {
+        p_date: date,
+        p_service_ids: ids,
+        p_service_mode: serviceMode,
+      })
+      : await supabaseRpc('get_month_availability', {
+        p_month: month,
+        p_service_ids: ids,
+        p_service_mode: serviceMode,
+      });
 
     if (!isRecord(result) || result.ok !== true) {
       const code = isRecord(result) && typeof result.code === 'string' ? result.code : 'INTERNAL_ERROR';

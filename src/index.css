@@ -4,15 +4,14 @@
 
 @layer base {
   body {
+    background: #F8FAFC;
+    color: #0F172A;
     -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
-  
-  table {
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    text-rendering: optimizeLegibility;
+
+  :focus-visible {
+    outline: 2px solid #2563EB;
+    outline-offset: 2px;
   }
 }
-

@@ -16,13 +16,17 @@ type SortColumn = 'booking_number' | 'status' | 'appointment_date' | 'first_name
 
 const STATUS_CLASS: Record<BookingStatus, string> = {
   new: 'bg-red-50 text-red-700',
+  pending_payment: 'bg-amber-50 text-amber-800',
   confirmed: 'bg-amber-50 text-amber-800',
   assigned: 'bg-amber-50 text-amber-800',
   on_the_way: 'bg-blue-50 text-blue-700',
   in_progress: 'bg-blue-50 text-blue-700',
+  waiting_for_parts: 'bg-amber-50 text-amber-800',
+  waiting_for_customer: 'bg-amber-50 text-amber-800',
   completed: 'bg-green-50 text-green-700',
   cancelled: 'bg-gray-100 text-gray-600',
   no_show: 'bg-gray-100 text-gray-600',
+  payment_expired: 'bg-gray-100 text-gray-600',
 };
 
 function sortValue(booking: Booking, column: SortColumn): string | number {
@@ -82,6 +86,10 @@ export function BookingTable({ bookings, timeZone, onUpdateField, onUpdateStatus
     if (draft === undefined) return;
     const original = booking[field] ?? '';
     if (draft === original || (field === 'city' && draft === '' && booking.city === null)) {
+      clearDraft(booking.id, field);
+      return;
+    }
+    if (field === 'address' && !draft.trim()) {
       clearDraft(booking.id, field);
       return;
     }

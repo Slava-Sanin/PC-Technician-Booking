@@ -1,6 +1,7 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
+import { extraMessages } from './extra';
 
 const resources = {
   ru: {
@@ -394,6 +395,10 @@ const resources = {
     }
   }
 };
+
+for (const locale of ['ru', 'he', 'en'] as const) {
+  Object.assign(resources[locale].translation, extraMessages[locale]);
+}
 
 i18n
   .use(LanguageDetector)

@@ -96,9 +96,14 @@ export function formatAppointmentInZone(iso: string, timeZone: string): string {
 }
 
 export function formatISODateToDisplay(isoDate: string): string {
-  const match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) return isoDate;
-  return `${match[3]}/${match[2]}/${match[1]}`;
+  if (!isoDate) return isoDate;
+  const civil = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (civil) return `${civil[3]}/${civil[2]}/${civil[1]}`;
+  const display = isoDate.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (display) {
+    return `${display[1].padStart(2, '0')}/${display[2].padStart(2, '0')}/${display[3]}`;
+  }
+  return isoDate;
 }
 
 export function parseDisplayDateTime(value: string): { date: string; time: string } | null {

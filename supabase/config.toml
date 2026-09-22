@@ -1,0 +1,19 @@
+project_id = "kdhhbkzjibwuelytgroj"
+
+[functions.get-booking-config]
+verify_jwt = false
+
+[functions.get-availability]
+verify_jwt = false
+
+[functions.get-service-catalog]
+verify_jwt = false
+
+[functions.create-booking]
+verify_jwt = false
+
+[functions.send-sms]
+verify_jwt = false
+
+[functions.payment-webhook]
+verify_jwt = false

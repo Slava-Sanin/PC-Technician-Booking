@@ -27,9 +27,16 @@ export function statusForCode(code: string): number {
       return 401;
     case 'FORBIDDEN':
       return 403;
+    case 'SERVICE_UNAVAILABLE':
     case 'SLOT_UNAVAILABLE':
     case 'DAILY_LIMIT_REACHED':
+    case 'PAYMENT_EXPIRED':
       return 409;
+    case 'PAYMENT_REQUIRED':
+    case 'INVALID_SERVICE_MODE':
+      return 400;
+    case 'PAYMENT_FAILED':
+      return 402;
     case 'RATE_LIMITED':
       return 429;
     default:

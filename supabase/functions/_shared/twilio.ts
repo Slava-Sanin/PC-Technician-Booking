@@ -1,5 +1,10 @@
 export type SmsLocale = 'ru' | 'he' | 'en';
 
+function formatSmsDate(isoDate: string): string {
+  const match = isoDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : isoDate;
+}
+
 export function normalizeLocale(value: unknown): SmsLocale {
   if (value === 'he' || value === 'en' || value === 'ru') return value;
   return 'ru';
@@ -12,14 +17,14 @@ export function buildBookingSms(input: {
   appointmentDate: string;
   appointmentTime: string;
 }): string {
-  const when = `${input.appointmentDate} ${input.appointmentTime}`;
+  const when = `${formatSmsDate(input.appointmentDate)} ${input.appointmentTime}`;
   if (input.locale === 'he') {
-    return `שלום, ${input.firstName}! ההזמנה שלך #${input.bookingNumber} להתקנת מערכת הפעלה נוצרה בהצלחה. צפו לטכנאי ב-${when}. אם יש לך שאלות, אנא צור קשר.`;
+    return `שלום, ${input.firstName}! ההזמנה שלך #${input.bookingNumber} לטכנאי מחשבים נוצרה. הפגישה נקבעה ל-${when}. אם יש שאלות, אנא צרו קשר.`;
   }
   if (input.locale === 'en') {
-    return `Hello, ${input.firstName}! Your booking #${input.bookingNumber} for OS installation has been created. A technician is scheduled for ${when}. If you have questions, please contact us.`;
+    return `Hello, ${input.firstName}! Your booking #${input.bookingNumber} for a computer technician is confirmed for ${when}. If you have questions, please contact us.`;
   }
-  return `Здравствуйте, ${input.firstName}! Ваша заявка #${input.bookingNumber} на установку ОС успешно создана. Ожидайте техника ${when}. При возникновении вопросов свяжитесь с нами.`;
+  return `Здравствуйте, ${input.firstName}! Заявка #${input.bookingNumber} на заказ компьютерного техника создана. Визит назначен на ${when}. Если есть вопросы, свяжитесь с нами.`;
 }
 
 export async function sendOfficialSms(phone: string, message: string): Promise<boolean> {

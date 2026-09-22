@@ -18,14 +18,28 @@ function normalizeBooking(row: BookingRow): Booking {
     completed: status === 'completed',
     comments: row.comments ?? null,
     city: row.city ?? null,
+    email: row.email ?? null,
+    service_mode: row.service_mode ?? null,
+    device_type: row.device_type ?? null,
+    device_brand: row.device_brand ?? null,
+    device_model: row.device_model ?? null,
+    problem_description: row.problem_description ?? null,
+    appointment_start: row.appointment_start ?? null,
+    appointment_end: row.appointment_end ?? null,
+    subtotal: row.subtotal ?? null,
+    total_amount: row.total_amount ?? null,
+    currency: row.currency ?? null,
+    payment_status: row.payment_status ?? null,
+    payment_expires_at: row.payment_expires_at ?? null,
     technician_notes: row.technician_notes ?? null,
     updated_at: row.updated_at ?? null,
     deleted_at: row.deleted_at ?? null,
+    booking_services: row.booking_services ?? [],
   };
 }
 
 export async function fetchBookings(includeDeleted: boolean): Promise<Booking[]> {
-  let query = supabase.from('bookings').select('*').order('appointment_date', { ascending: true });
+  let query = supabase.from('bookings').select('*, booking_services(*)').order('appointment_date', { ascending: true });
   query = includeDeleted ? query.not('deleted_at', 'is', null) : query.is('deleted_at', null);
 
   const { data, error } = await query;
@@ -38,7 +52,7 @@ export async function updateBooking(id: string, patch: BookingUpdate): Promise<B
     .from('bookings')
     .update(patch)
     .eq('id', id)
-    .select('*')
+    .select('*, booking_services(*)')
     .maybeSingle();
 
   if (error || !data) {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   formatAppointmentInZone,
+  formatISODateToDisplay,
   parseDisplayDate,
   parseDisplayDateTime,
   todayISOInTimeZone,
@@ -26,6 +27,12 @@ describe('Asia/Jerusalem civil time', () => {
 
   it('formats a stored UTC timestamp back in Jerusalem time', () => {
     expect(formatAppointmentInZone('2026-07-15T11:00:00.000Z', 'Asia/Jerusalem')).toBe('15/07/2026 14:00');
+  });
+
+  it('formats civil dates as dd/mm/yyyy', () => {
+    expect(formatISODateToDisplay('2026-09-25')).toBe('25/09/2026');
+    expect(formatISODateToDisplay('2026-09-25T11:00:00.000Z')).toBe('25/09/2026');
+    expect(formatISODateToDisplay('5/7/2026')).toBe('05/07/2026');
   });
 
   it('rejects an impossible calendar date', () => {

@@ -7,6 +7,8 @@ describe('booking status', () => {
     expect(statusFromLegacyCompleted(false)).toBe('new');
     expect(completedFromStatus('completed')).toBe(true);
     expect(completedFromStatus('in_progress')).toBe(false);
+    expect(isBookingStatus('pending_payment')).toBe(true);
+    expect(isBookingStatus('payment_expired')).toBe(true);
     expect(isBookingStatus('on_the_way')).toBe(true);
     expect(isBookingStatus('done')).toBe(false);
   });
