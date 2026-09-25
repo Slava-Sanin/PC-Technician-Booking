@@ -64,9 +64,9 @@ const MODE_ICON: Record<ServiceMode, typeof Car> = {
   workshop: Wrench,
 };
 
-function CatalogIcon({ name }: { name: string | null }) {
+function CatalogIcon({ name, className = 'h-5 w-5' }: { name: string | null; className?: string }) {
   const Icon = ICONS[name ?? ''] ?? Circle;
-  return <Icon className="h-5 w-5" aria-hidden="true" />;
+  return <Icon className={className} aria-hidden="true" />;
 }
 
 function PriceLabel({ service, locale }: { service: PublicService; locale: string }) {
@@ -106,7 +106,7 @@ function MonthGrid({
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-2 flex items-center justify-between">
         <button type="button" className="rounded-lg p-2 hover:bg-canvas" onClick={() => onMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} aria-label="previous">
           <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
         </button>
@@ -128,7 +128,7 @@ function MonthGrid({
               type="button"
               disabled={isDisabled}
               onClick={() => onSelect(iso)}
-              className={`h-10 rounded-lg text-sm font-medium ${isSelected ? 'bg-primary text-white' : 'hover:bg-blue-50'} disabled:cursor-not-allowed disabled:text-slate-300`}
+              className={`h-8 rounded-md text-xs font-medium ${isSelected ? 'bg-primary text-white' : 'hover:bg-blue-50'} disabled:cursor-not-allowed disabled:text-slate-300`}
             >
               {index + 1}
             </button>
@@ -190,6 +190,12 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
   }, []);
 
   const services = useMemo(() => categories.flatMap((category) => category.services), [categories]);
+  const categoryColumns = useMemo(() => {
+    const count = categories.length;
+    if (count <= 0) return 1;
+    const maxRows = 2;
+    return Math.max(1, Math.ceil(count / maxRows));
+  }, [categories.length]);
   const selected = useMemo(
     () => selectedIds.map((id) => services.find((service) => service.id === id)).filter((service): service is PublicService => Boolean(service)),
     [selectedIds, services],
@@ -326,14 +332,8 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
   }
 
   return (
-    <Shell onOpenAdmin={onOpenAdmin}>
-      <div className="mb-8 max-w-3xl">
-        <p className="text-sm font-semibold uppercase tracking-wide text-secondary">{t('brandKicker')}</p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-ink sm:text-4xl">{t('title')}</h1>
-        <p className="mt-2 text-base text-muted">{t('subtitle')}</p>
-      </div>
-
-      {loading ? <div className="grid gap-4 md:grid-cols-3">{Array.from({ length: 6 }).map((_, index) => <Skeleton key={index} className="h-28" />)}</div> : null}
+    <Shell onOpenAdmin={onOpenAdmin} subtitle={t('subtitle')}>
+      {loading ? <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{Array.from({ length: 8 }).map((_, index) => <Skeleton key={index} className="h-20" />)}</div> : null}
       {loadError ? (
         <Alert tone="danger">
           <p>{t('catalogLoadError')}</p>
@@ -342,36 +342,62 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
       ) : null}
 
       {!loading && !loadError ? (
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <Card className="p-4 sm:p-6">
-            <ol className="mb-6 flex gap-2 overflow-x-auto text-xs font-semibold text-muted">
+        <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_min(280px,22vw)] lg:items-stretch">
+          <Card className="flex h-full min-h-0 flex-col p-3">
+            <ol className="mb-2 flex shrink-0 gap-1.5 overflow-x-auto text-[11px] font-semibold text-muted">
               {steps.map((name, index) => (
-                <li key={name} className={`whitespace-nowrap rounded-full px-3 py-1 ${index === step ? 'bg-primary text-white' : 'bg-canvas'}`}>
+                <li key={name} className={`whitespace-nowrap rounded-full px-2.5 py-0.5 ${index === step ? 'bg-primary text-white' : 'bg-canvas'}`}>
                   {index + 1}. {t(`step_${name}`)}
                 </li>
               ))}
             </ol>
 
+            <div className={`min-h-0 flex-1 overscroll-contain ${current === 'services' ? 'overflow-y-auto lg:flex lg:flex-col lg:overflow-hidden' : 'overflow-y-auto'}`}>
             {current === 'services' ? (
-              <div className="space-y-5">
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {categories.map((category) => {
-                    const active = category.id === activeCategory?.id;
-                    return (
-                      <button
-                        key={category.id}
-                        type="button"
-                        onClick={() => setCategoryId(category.id)}
-                        className={`rounded-2xl border p-4 text-start transition ${active ? 'border-primary bg-blue-50' : 'border-line hover:border-primary/40'}`}
-                      >
-                        <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-primary"><CatalogIcon name={category.icon} /></span>
-                        <span className="mt-3 block font-semibold text-ink">{localized(category.name, locale)}</span>
-                        <span className="mt-1 block text-sm text-muted">{localized(category.description, locale)}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="grid gap-3">
+              <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+                <section
+                  aria-labelledby="booking-categories-heading"
+                  className="shrink-0 rounded-xl border border-line bg-surface p-3"
+                >
+                  <h3 id="booking-categories-heading" className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                    {t('nav_categories')}
+                  </h3>
+                  <div
+                    className="grid gap-3"
+                    style={{ gridTemplateColumns: `repeat(${categoryColumns}, minmax(0, 1fr))` }}
+                  >
+                    {categories.map((category) => {
+                      const active = category.id === activeCategory?.id;
+                      return (
+                        <button
+                          key={category.id}
+                          type="button"
+                          onClick={() => setCategoryId(category.id)}
+                          className={`rounded-2xl border p-4 text-start transition ${active ? 'border-primary bg-blue-50' : 'border-line hover:border-primary/40'}`}
+                        >
+                          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-primary">
+                            <CatalogIcon name={category.icon} />
+                          </span>
+                          <span className="mt-3 block font-semibold text-ink">{localized(category.name, locale)}</span>
+                          <span className="mt-1 block text-sm text-muted">{localized(category.description, locale)}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </section>
+                <section
+                  aria-labelledby="booking-services-heading"
+                  className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-line bg-canvas"
+                >
+                  <h3
+                    id="booking-services-heading"
+                    className="shrink-0 border-b border-blue-100 bg-blue-50 px-3 py-2 text-sm font-semibold text-primary"
+                  >
+                    {activeCategory
+                      ? t('servicesOfCategory', { name: localized(activeCategory.name, locale) })
+                      : t('step_services')}
+                  </h3>
+                  <div className="grid min-h-0 flex-1 gap-1.5 overflow-y-auto overscroll-contain p-3 content-start">
                   {(activeCategory?.services ?? []).map((service) => {
                     const checked = selectedIds.includes(service.id);
                     return (
@@ -380,29 +406,30 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
                         type="button"
                         onClick={() => toggleService(service.id)}
                         aria-pressed={checked}
-                        className={`flex items-start justify-between gap-3 rounded-2xl border p-4 text-start ${checked ? 'border-primary bg-blue-50' : 'border-line hover:border-primary/40'}`}
+                        className={`flex items-center justify-between gap-2 rounded-xl border px-2.5 py-2 text-start ${checked ? 'border-primary bg-blue-50' : 'border-line hover:border-primary/40'}`}
                       >
-                        <span>
-                          <span className="block font-semibold">{localized(service.name, locale)}</span>
-                          <span className="mt-1 block text-sm text-muted">{service.durationMinutes} {t('minutesShort')}</span>
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold leading-tight">{localized(service.name, locale)}</span>
+                          <span className="text-xs text-muted">{service.durationMinutes} {t('minutesShort')}</span>
                         </span>
-                        <span className="shrink-0 text-sm font-semibold text-ink"><PriceLabel service={service} locale={locale} /></span>
+                        <span className="shrink-0 text-xs font-semibold text-ink"><PriceLabel service={service} locale={locale} /></span>
                       </button>
                     );
                   })}
-                </div>
+                  </div>
+                </section>
               </div>
             ) : null}
 
             {current === 'mode' ? (
-              <div className="grid gap-3">
+              <div className="grid gap-2 sm:grid-cols-3">
                 {modes.length === 0 ? <EmptyState title={t('noCommonMode')} /> : null}
                 {modes.map((item) => {
                   const Icon = MODE_ICON[item];
                   return (
-                    <button key={item} type="button" onClick={() => { setMode(item); setDate(''); setTime(''); }} className={`flex items-center gap-3 rounded-2xl border p-4 text-start ${mode === item ? 'border-primary bg-blue-50' : 'border-line'}`}>
-                      <Icon className="h-5 w-5 text-primary" aria-hidden="true" />
-                      <span className="font-semibold">{t(`mode_${item}`)}</span>
+                    <button key={item} type="button" onClick={() => { setMode(item); setDate(''); setTime(''); }} className={`flex items-center gap-2 rounded-xl border p-2.5 text-start ${mode === item ? 'border-primary bg-blue-50' : 'border-line'}`}>
+                      <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                      <span className="text-sm font-semibold">{t(`mode_${item}`)}</span>
                     </button>
                   );
                 })}
@@ -410,7 +437,7 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
             ) : null}
 
             {current === 'device' ? (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-2">
                 <Field label={t('deviceType')} required={requiresDevice}>
                   <Select required={requiresDevice} value={deviceType} onChange={(event) => setDeviceType(event.target.value as DeviceType | '')}>
                     <option value="">{t('selectPlaceholder')}</option>
@@ -426,13 +453,13 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
                 <Field label={t('deviceBrand')}><Input value={deviceBrand} maxLength={80} onChange={(event) => setDeviceBrand(event.target.value)} /></Field>
                 <Field label={t('deviceModel')}><Input value={deviceModel} maxLength={80} onChange={(event) => setDeviceModel(event.target.value)} /></Field>
                 <div className="sm:col-span-2">
-                  <Field label={t('problemDescription')}><Textarea value={problem} maxLength={2000} onChange={(event) => setProblem(event.target.value)} /></Field>
+                  <Field label={t('problemDescription')}><Textarea rows={2} className="min-h-[4.5rem]" value={problem} maxLength={2000} onChange={(event) => setProblem(event.target.value)} /></Field>
                 </div>
               </div>
             ) : null}
 
             {current === 'details' ? (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-2 sm:grid-cols-2">
                 <Field label={t('firstName')} required><Input required value={firstName} maxLength={80} onChange={(event) => setFirstName(event.target.value)} /></Field>
                 <Field label={t('lastName')} required><Input required value={lastName} maxLength={80} onChange={(event) => setLastName(event.target.value)} /></Field>
                 <Field label={t('phone')} required><Input required value={phone} onChange={(event) => setPhone(event.target.value)} /></Field>
@@ -440,13 +467,13 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
                 <Field label={t('city')}><Input value={city} maxLength={80} onChange={(event) => setCity(event.target.value)} /></Field>
                 <Field label={t('address')} required><Input required value={address} maxLength={200} onChange={(event) => setAddress(event.target.value)} /></Field>
                 <div className="sm:col-span-2">
-                  <Field label={t('comments')}><Textarea value={comments} maxLength={1000} onChange={(event) => setComments(event.target.value)} /></Field>
+                  <Field label={t('comments')}><Textarea rows={2} className="min-h-[4.5rem]" value={comments} maxLength={1000} onChange={(event) => setComments(event.target.value)} /></Field>
                 </div>
               </div>
             ) : null}
 
             {current === 'schedule' ? (
-              <div className="grid gap-6 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2">
                 <MonthGrid
                   month={visibleMonth}
                   selected={date}
@@ -459,9 +486,9 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
                   <p className="mb-2 flex items-center gap-2 text-sm font-semibold"><CalendarDays className="h-4 w-4" aria-hidden="true" />{t('durationMinutes')}: {availability.durationMinutes || duration}</p>
                   {availability.loading ? <Skeleton className="h-24" /> : null}
                   {!availability.loading && availability.slots.length === 0 ? <EmptyState title={t('noAvailableSlots')} /> : null}
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-5">
                     {availability.slots.map((slot) => (
-                      <button key={slot} type="button" onClick={() => setTime(slot)} className={`rounded-lg border px-2 py-2 text-sm font-semibold ${time === slot ? 'border-primary bg-primary text-white' : 'border-line'}`}>
+                      <button key={slot} type="button" onClick={() => setTime(slot)} className={`rounded-md border px-1.5 py-1.5 text-xs font-semibold ${time === slot ? 'border-primary bg-primary text-white' : 'border-line'}`}>
                         {slot}
                       </button>
                     ))}
@@ -471,13 +498,13 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
             ) : null}
 
             {current === 'payment' ? (
-              <div className="space-y-3">
-                <p className="text-sm text-muted">{payMode === 'required' ? t('paymentRequiredHint') : t('paymentOptionalHint')}</p>
+              <div className="space-y-2">
+                <p className="text-xs text-muted">{payMode === 'required' ? t('paymentRequiredHint') : t('paymentOptionalHint')}</p>
                 {methods.length === 0 ? <Alert tone="warning">{t('noPaymentMethods')}</Alert> : null}
                 {methods.map((method) => (
-                  <button key={method.code} type="button" onClick={() => setPaymentCode(method.code)} className={`block w-full rounded-2xl border p-4 text-start ${paymentCode === method.code ? 'border-primary bg-blue-50' : 'border-line'}`}>
-                    <span className="font-semibold">{localized(method.name, locale)}</span>
-                    <span className="mt-1 block text-sm text-muted">{localized(method.instructions, locale)}</span>
+                  <button key={method.code} type="button" onClick={() => setPaymentCode(method.code)} className={`block w-full rounded-xl border p-2.5 text-start ${paymentCode === method.code ? 'border-primary bg-blue-50' : 'border-line'}`}>
+                    <span className="text-sm font-semibold">{localized(method.name, locale)}</span>
+                    <span className="mt-0.5 block text-xs text-muted">{localized(method.instructions, locale)}</span>
                   </button>
                 ))}
                 {payMode === 'optional' ? <Button variant="ghost" onClick={() => { setPaymentCode(''); setStep((value) => value + 1); }}>{t('skipPayment')}</Button> : null}
@@ -491,16 +518,17 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
                 <p>{date ? `${formatISODateToDisplay(date)} ${time}` : ''}</p>
               </div>
             ) : null}
+            </div>
 
-            <div className="mt-6 hidden items-center justify-between gap-3 sm:flex">
-              <Button variant="ghost" disabled={step === 0} onClick={() => setStep((value) => Math.max(0, value - 1))}>{t('back')}</Button>
+            <div className="mt-2 hidden shrink-0 items-center justify-between gap-2 border-t border-line pt-2 sm:flex">
+              <Button variant="ghost" className="py-2" disabled={step === 0} onClick={() => setStep((value) => Math.max(0, value - 1))}>{t('back')}</Button>
               {current === 'confirm'
-                ? <Button onClick={() => void submit()} disabled={submitting}>{submitting ? t('submitting') : t('submit')}</Button>
-                : <Button disabled={!canContinue()} onClick={() => setStep((value) => Math.min(steps.length - 1, value + 1))}>{t('next')}</Button>}
+                ? <Button className="py-2" onClick={() => void submit()} disabled={submitting}>{submitting ? t('submitting') : t('submit')}</Button>
+                : <Button className="py-2" disabled={!canContinue()} onClick={() => setStep((value) => Math.min(steps.length - 1, value + 1))}>{t('next')}</Button>}
             </div>
           </Card>
 
-          <Card className="sticky top-4 hidden p-5 lg:block">
+          <Card className="hidden h-full min-h-0 flex-col overflow-y-auto p-3 lg:flex">
             <Summary selected={selected} locale={locale} mode={mode} duration={duration} date={date} time={time} total={total} currency={currency} paymentCode={paymentCode} />
           </Card>
         </div>
@@ -542,24 +570,32 @@ function Summary({
   const { t } = useTranslation();
   return (
     <div>
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">{t('summary')}</h2>
-      <ul className="mt-3 space-y-2 text-sm">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">{t('summary')}</h2>
+      <ul className="mt-2 space-y-1 text-xs">
         {selected.length === 0 ? <li className="text-muted">{t('noneSelected')}</li> : null}
-        {selected.map((service) => <li key={service.id} className="flex justify-between gap-3"><span>{localized(service.name, locale)}</span><span><PriceLabel service={service} locale={locale} /></span></li>)}
+        {selected.map((service) => <li key={service.id} className="flex justify-between gap-2"><span className="min-w-0 truncate">{localized(service.name, locale)}</span><span className="shrink-0"><PriceLabel service={service} locale={locale} /></span></li>)}
       </ul>
-      <dl className="mt-4 space-y-2 border-t border-line pt-4 text-sm">
+      <dl className="mt-2 space-y-1 border-t border-line pt-2 text-xs">
         <Row label={t('serviceMode')} value={mode ? t(`mode_${mode}`) : '—'} />
         <Row label={t('duration')} value={`${duration} ${t('minutesShort')}`} />
         <Row label={t('appointmentDate')} value={date ? formatISODateToDisplay(date) : '—'} />
         <Row label={t('appointmentTime')} value={time || '—'} />
-        <Row label={t('total')} value={total == null ? t('priceQuote') : formatMoney(total, currency, locale)} />
+        <Row highlight label={t('total')} value={total == null ? t('priceQuote') : formatMoney(total, currency, locale)} />
         <Row label={t('payment')} value={paymentCode || '—'} />
       </dl>
     </div>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+  if (highlight) {
+    return (
+      <div className="-mx-0.5 my-1 flex items-center justify-between gap-3 rounded-lg border border-blue-100 bg-blue-50 px-2 py-1.5">
+        <dt className="text-sm font-bold text-ink">{label}</dt>
+        <dd className="text-sm font-bold text-primary">{value}</dd>
+      </div>
+    );
+  }
   return <div className="flex justify-between gap-3"><dt className="text-muted">{label}</dt><dd className="font-medium text-ink">{value}</dd></div>;
 }
 
@@ -579,20 +615,24 @@ function BankBlock({ instructions, locale }: { instructions?: BankInstructions |
   );
 }
 
-function Shell({ children, onOpenAdmin }: { children: ReactNode; onOpenAdmin: () => void }) {
+function Shell({ children, onOpenAdmin, subtitle }: { children: ReactNode; onOpenAdmin: () => void; subtitle?: string }) {
   const { t } = useTranslation();
   return (
-    <div className="min-h-screen bg-canvas pb-24 sm:pb-10">
-      <header className="border-b border-line bg-surface">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4">
-          <p className="font-semibold text-ink">{t('title')}</p>
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={onOpenAdmin} className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium hover:bg-canvas">{t('admin')}</button>
+    <div className="flex min-h-dvh flex-col overflow-hidden bg-canvas pb-14 lg:pb-0">
+      <header className="shrink-0 border-b border-line bg-surface">
+        <div className="flex w-full items-center justify-between gap-3 px-3 py-2 sm:px-5 xl:px-8">
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase leading-none tracking-wide text-secondary">{t('brandKicker')}</p>
+            <h1 className="truncate text-base font-semibold leading-tight text-ink sm:text-lg">{t('title')}</h1>
+            {subtitle ? <p className="hidden truncate text-xs text-muted sm:block">{subtitle}</p> : null}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button type="button" onClick={onOpenAdmin} className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium hover:bg-canvas sm:text-sm">{t('admin')}</button>
             <LanguageSwitcher />
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+      <main className="flex min-h-0 w-full flex-1 flex-col overflow-hidden px-3 py-2 sm:px-5 xl:px-8">{children}</main>
     </div>
   );
 }
