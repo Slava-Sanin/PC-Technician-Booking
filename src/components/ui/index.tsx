@@ -116,6 +116,14 @@ export function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`animate-pulse rounded-xl bg-slate-200 ${className}`} />;
 }
 
+export function ModalFooter({ children, className = '' }: { children: ReactNode; className?: string }) {
+  return (
+    <div className={`mt-4 flex w-full flex-wrap items-center justify-center gap-2 ${className}`}>
+      {children}
+    </div>
+  );
+}
+
 export function Modal({
   title,
   children,

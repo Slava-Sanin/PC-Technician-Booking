@@ -70,6 +70,17 @@ export interface StaffRow {
   role: 'admin' | 'technician';
   active: boolean;
   email: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  address: string | null;
+}
+
+export interface StaffProfileInput {
+  firstName?: string | null;
+  lastName?: string | null;
+  phone?: string | null;
+  address?: string | null;
 }
 
 export interface ServiceDraft {
@@ -255,18 +266,63 @@ export async function reviewPayment(paymentId: string, decision: 'paid' | 'faile
 }
 
 export async function fetchStaff(): Promise<StaffRow[]> {
-  const { data, error } = await supabase.from('profiles').select('user_id, role, active, email').order('created_at');
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('user_id, role, active, email, first_name, last_name, phone, address')
+    .order('created_at');
   if (error) throw error;
   return (data ?? []) as StaffRow[];
 }
 
-export async function setStaff(email: string, role: 'admin' | 'technician', active: boolean): Promise<void> {
-  const { data, error } = await supabase.rpc('admin_set_staff', {
-    p_email: email,
-    p_role: role,
-    p_active: active,
-  });
-  await expectOk(data, error);
+function readFunctionErrorCode(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object' || !('error' in payload)) return null;
+  const value = (payload as { error?: unknown }).error;
+  return typeof value === 'string' ? value : null;
+}
+
+async function invokeStaffFunction(body: Record<string, unknown>): Promise<void> {
+  const { data, error } = await supabase.functions.invoke('admin-set-staff', { body });
+  if (error) {
+    const context = (error as { context?: { json?: () => Promise<unknown> } }).context;
+    if (context && typeof context.json === 'function') {
+      try {
+        const payload = await context.json();
+        const code = readFunctionErrorCode(payload);
+        if (code) throw new BookingApiError(normalizeErrorCode(code));
+      } catch (parseError) {
+        if (parseError instanceof BookingApiError) throw parseError;
+      }
+    }
+
+    const direct = readFunctionErrorCode(data);
+    if (direct) throw new BookingApiError(normalizeErrorCode(direct));
+    throw new BookingApiError('INTERNAL_ERROR');
+  }
+
+  const payload = data as { ok?: boolean; code?: string } | null;
+  if (payload?.ok !== true) {
+    throw new BookingApiError(normalizeErrorCode(payload?.code));
+  }
+}
+
+export async function setStaff(
+  email: string,
+  role: 'admin' | 'technician',
+  active: boolean,
+  password?: string,
+  profile?: StaffProfileInput,
+): Promise<void> {
+  const body: Record<string, unknown> = {
+    email,
+    role,
+    active,
+    firstName: profile?.firstName ?? null,
+    lastName: profile?.lastName ?? null,
+    phone: profile?.phone ?? null,
+    address: profile?.address ?? null,
+  };
+  if (password?.trim()) body.password = password.trim();
+  await invokeStaffFunction(body);
 }
 
 export function slugCode(value: string): string {

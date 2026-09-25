@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.payment-webhook]
 verify_jwt = false
+
+[functions.admin-set-staff]
+verify_jwt = true

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ArrowDown, ArrowUp, ArrowUpDown, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
+import { compareSortValues, SortableTableHead, TableHead, toggleSortState } from './sortableTableHead';
 import { BOOKING_STATUSES, type Booking, type BookingStatus, type EditableBookingField } from '../../types/booking';
 import { formatAppointmentInZone, parseDisplayDateTime, zonedTimeToUtc } from '../../utils/dateTime';
 
@@ -12,7 +13,18 @@ interface BookingTableProps {
   onDelete: (id: string) => Promise<void>;
 }
 
-type SortColumn = 'booking_number' | 'status' | 'appointment_date' | 'first_name' | 'last_name' | 'phone' | 'city' | 'address' | 'operating_system';
+type SortColumn =
+  | 'booking_number'
+  | 'status'
+  | 'appointment_date'
+  | 'first_name'
+  | 'last_name'
+  | 'phone'
+  | 'city'
+  | 'address'
+  | 'operating_system'
+  | 'comments'
+  | 'technician_notes';
 
 const STATUS_CLASS: Record<BookingStatus, string> = {
   new: 'bg-red-50 text-red-700',
@@ -45,18 +57,13 @@ export function BookingTable({ bookings, timeZone, onUpdateField, onUpdateStatus
   const sorted = [...bookings].sort((left, right) => {
     const leftValue = sortValue(left, sortColumn);
     const rightValue = sortValue(right, sortColumn);
-    if (leftValue < rightValue) return sortDirection === 'asc' ? -1 : 1;
-    if (leftValue > rightValue) return sortDirection === 'asc' ? 1 : -1;
-    return 0;
+    return compareSortValues(leftValue, rightValue, sortDirection);
   });
 
   const toggleSort = (column: SortColumn) => {
-    if (sortColumn === column) {
-      setSortDirection((current) => (current === 'asc' ? 'desc' : 'asc'));
-      return;
-    }
-    setSortColumn(column);
-    setSortDirection('asc');
+    const next = toggleSortState(sortColumn, column, sortDirection);
+    setSortColumn(next.column);
+    setSortDirection(next.direction);
   };
 
   const fieldValue = (booking: Booking, field: EditableBookingField): string => {
@@ -128,45 +135,30 @@ export function BookingTable({ bookings, timeZone, onUpdateField, onUpdateStatus
     });
   };
 
-  const header = (column: SortColumn, label: string, className = '') => (
-    <th
-      scope="col"
-      onClick={() => toggleSort(column)}
-      className={`px-1 py-1 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100 ${className}`}
-    >
-      <div className="flex items-center justify-center gap-1">
-        {label}
-        {sortColumn === column ? (
-          sortDirection === 'asc' ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />
-        ) : (
-          <ArrowUpDown className="w-3 h-3 opacity-30" />
-        )}
-      </div>
-    </th>
-  );
+  const headClass = 'px-1 py-1 text-xs uppercase tracking-wider hover:bg-slate-200/60';
 
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <div className="overflow-x-auto">
-        <table className="w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="table-cols-center w-full">
+          <thead>
             <tr>
-              <th className="px-1 py-1 text-center text-xs font-semibold text-gray-700">#</th>
-              {header('booking_number', t('bookingNumber'))}
-              {header('status', t('status'))}
-              {header('appointment_date', t('appointmentDate'))}
-              {header('first_name', t('firstName'))}
-              {header('last_name', t('lastName'))}
-              {header('phone', t('phone'), 'w-32')}
-              {header('city', t('city'))}
-              {header('address', t('address'))}
-              {header('operating_system', t('operatingSystem'))}
-              <th className="px-1 py-1 text-center text-xs font-semibold text-gray-700">{t('comments')}</th>
-              <th className="px-1 py-1 text-center text-xs font-semibold text-gray-700">{t('technicianNotes')}</th>
-              <th className="px-1 py-1 text-center text-xs font-semibold text-gray-700">{t('actions')}</th>
+              <TableHead label="#" className={headClass} />
+              <SortableTableHead column="booking_number" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('bookingNumber')} className={headClass} />
+              <SortableTableHead column="status" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('status')} className={headClass} />
+              <SortableTableHead column="appointment_date" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('appointmentDate')} className={headClass} />
+              <SortableTableHead column="first_name" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('firstName')} className={headClass} />
+              <SortableTableHead column="last_name" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('lastName')} className={headClass} />
+              <SortableTableHead column="phone" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('phone')} className={`${headClass} w-32`} />
+              <SortableTableHead column="city" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('city')} className={headClass} />
+              <SortableTableHead column="address" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('address')} className={headClass} />
+              <SortableTableHead column="operating_system" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('operatingSystem')} className={headClass} />
+              <SortableTableHead column="comments" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('comments')} className={headClass} />
+              <SortableTableHead column="technician_notes" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('technicianNotes')} className={headClass} />
+              <TableHead label={t('actions')} className={headClass} />
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white">
             {sorted.length === 0 && (
               <tr>
                 <td colSpan={13} className="px-4 py-8 text-center text-sm text-gray-500">{t('noBookings')}</td>
@@ -174,7 +166,7 @@ export function BookingTable({ bookings, timeZone, onUpdateField, onUpdateStatus
             )}
             {sorted.map((booking, index) => (
               <tr key={booking.id} className={`hover:bg-gray-50 ${booking.deleted_at ? 'opacity-60' : ''}`}>
-                <td className="px-1 py-1 text-sm text-center text-gray-800 font-semibold">{index + 1}</td>
+                <td className="px-1 py-1 text-sm text-gray-800 font-semibold">{index + 1}</td>
                 <td className="px-1 py-1 text-sm text-gray-800 font-medium">{booking.booking_number}</td>
                 <td className="px-1 py-1">
                   <select
@@ -238,7 +230,7 @@ export function BookingTable({ bookings, timeZone, onUpdateField, onUpdateStatus
                     className="text-sm border rounded px-1 py-1 w-full text-gray-800"
                   />
                 </td>
-                <td className="px-1 py-1 text-center">
+                <td className="px-1 py-1">
                   <button
                     type="button"
                     onClick={() => void onDelete(booking.id)}

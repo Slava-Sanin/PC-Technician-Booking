@@ -34,6 +34,8 @@ export function statusForCode(code: string): number {
       return 409;
     case 'PAYMENT_REQUIRED':
     case 'INVALID_SERVICE_MODE':
+    case 'STAFF_PASSWORD_REQUIRED':
+    case 'STAFF_USER_NOT_FOUND':
       return 400;
     case 'PAYMENT_FAILED':
       return 402;

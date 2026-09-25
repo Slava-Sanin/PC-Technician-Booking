@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ArrowDown, ArrowUp } from 'lucide-react';
+import { compareSortValues, SortableTableHead, TableHead, toggleSortState, type SortDirection } from './sortableTableHead';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
-import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, Select, Switch, Textarea } from '../ui';
+import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, ModalFooter, Select, Switch, Textarea } from '../ui';
 import { useBookings } from '../../hooks/useBookings';
 import { useBookingSettings } from '../../hooks/useBookingSettings';
 import {
@@ -25,6 +27,7 @@ import {
   type ServiceDraft,
   type ServicePaymentLink,
   type ServiceRow,
+  type StaffProfileInput,
   type StaffRow,
 } from '../../services/catalogService';
 import type { StaffProfile, WorkingHourDay } from '../../types/bookingSettings';
@@ -235,7 +238,11 @@ function BookingEditor({
           {BOOKING_STATUSES.map((status) => <option key={status} value={status}>{t(`status_${status}`)}</option>)}
         </Select>
       </Field>
-      {!booking.deleted_at ? <Button variant="danger" onClick={() => void onDelete(booking.id).then(onClose)}>{t('delete')}</Button> : null}
+      {!booking.deleted_at ? (
+        <ModalFooter>
+          <Button variant="danger" onClick={() => void onDelete(booking.id).then(onClose)}>{t('delete')}</Button>
+        </ModalFooter>
+      ) : null}
     </div>
   );
 }
@@ -301,12 +308,46 @@ function useCatalog(enabled: boolean) {
   return { categories, services, methods, links, loading, refresh };
 }
 
+type CategorySortColumn = 'name' | 'servicesCount' | 'visible';
+
 function CategoriesPanel({ isAdmin }: { isAdmin: boolean }) {
   const { t, i18n } = useTranslation();
   const catalog = useCatalog(true);
   const [open, setOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
+  const [sortColumn, setSortColumn] = useState<CategorySortColumn | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const rows = catalog.categories.filter((category) => showArchived || !category.archived_at);
+
+  const serviceCount = useCallback(
+    (categoryId: string) => catalog.services.filter((service) => service.category_id === categoryId && !service.archived_at).length,
+    [catalog.services],
+  );
+
+  const toggleSort = (column: CategorySortColumn) => {
+    const next = toggleSortState(sortColumn, column, sortDirection);
+    setSortColumn(next.column);
+    setSortDirection(next.direction);
+  };
+
+  const sortedRows = useMemo(() => {
+    if (!sortColumn) return rows;
+    return [...rows].sort((left, right) => {
+      let leftValue: string | number | boolean;
+      let rightValue: string | number | boolean;
+      if (sortColumn === 'name') {
+        leftValue = localized({ ru: left.name_ru, he: left.name_he, en: left.name_en }, i18n.language).toLowerCase();
+        rightValue = localized({ ru: right.name_ru, he: right.name_he, en: right.name_en }, i18n.language).toLowerCase();
+      } else if (sortColumn === 'servicesCount') {
+        leftValue = serviceCount(left.id);
+        rightValue = serviceCount(right.id);
+      } else {
+        leftValue = left.active;
+        rightValue = right.active;
+      }
+      return compareSortValues(leftValue, rightValue, sortDirection);
+    });
+  }, [rows, sortColumn, sortDirection, serviceCount, i18n.language]);
 
   const move = async (category: CategoryRow, direction: -1 | 1) => {
     const ordered = [...rows];
@@ -329,20 +370,20 @@ function CategoriesPanel({ isAdmin }: { isAdmin: boolean }) {
       </div>
       {!isAdmin ? <Alert>{t('settingsReadOnly')}</Alert> : null}
       <div className="overflow-x-auto rounded-2xl border border-line bg-surface">
-        <table className="min-w-full text-sm">
-          <thead className="text-start text-muted">
+        <table className="table-cols-center min-w-full text-sm">
+          <thead>
             <tr>
-              <th className="px-4 py-3 font-medium">{t('category')}</th>
-              <th className="px-4 py-3 font-medium">{t('servicesCount')}</th>
-              <th className="px-4 py-3 font-medium">{t('visible')}</th>
-              <th className="px-4 py-3 font-medium">{t('actions')}</th>
+              <SortableTableHead column="name" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('category')} className="px-4 py-3" />
+              <SortableTableHead column="servicesCount" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('servicesCount')} className="px-4 py-3" />
+              <SortableTableHead column="visible" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('visible')} className="px-4 py-3" />
+              <TableHead label={t('actions')} className="px-4 py-3" />
             </tr>
           </thead>
           <tbody>
-            {rows.map((category) => {
-              const count = catalog.services.filter((service) => service.category_id === category.id && !service.archived_at).length;
+            {sortedRows.map((category) => {
+              const count = serviceCount(category.id);
               return (
-                <tr key={category.id} className="border-t border-line">
+                <tr key={category.id}>
                   <td className="px-4 py-3 font-medium">{localized({ ru: category.name_ru, he: category.name_he, en: category.name_en }, i18n.language)}</td>
                   <td className="px-4 py-3">{count}</td>
                   <td className="px-4 py-3">
@@ -353,8 +394,12 @@ function CategoriesPanel({ isAdmin }: { isAdmin: boolean }) {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-2">
-                      <Button variant="ghost" onClick={() => void move(category, -1).catch(() => toast.error(t('updateError')))}>{t('moveUp')}</Button>
-                      <Button variant="ghost" onClick={() => void move(category, 1).catch(() => toast.error(t('updateError')))}>{t('moveDown')}</Button>
+                      <Button variant="ghost" className="px-2.5" aria-label={t('moveUp')} title={t('moveUp')} onClick={() => void move(category, -1).catch(() => toast.error(t('updateError')))}>
+                        <ArrowUp className="h-4 w-4" aria-hidden />
+                      </Button>
+                      <Button variant="ghost" className="px-2.5" aria-label={t('moveDown')} title={t('moveDown')} onClick={() => void move(category, 1).catch(() => toast.error(t('updateError')))}>
+                        <ArrowDown className="h-4 w-4" aria-hidden />
+                      </Button>
                       {isAdmin ? (
                         <Button variant="ghost" onClick={() => void updateCategory(category.id, { archived_at: category.archived_at ? null : new Date().toISOString() }).then(() => catalog.refresh())}>
                           {category.archived_at ? t('restore') : t('archive')}
@@ -433,17 +478,27 @@ function CategoryCreator({ onClose, onSaved }: { onClose: () => void; onSaved: (
         <Field label={t('icon')}><Input value={icon} onChange={(event) => setIcon(event.target.value)} /></Field>
         <div className="flex items-center gap-3"><Switch checked={active} onChange={setActive} label={t('visible')} /><span>{t('visible')}</span></div>
       </div>
-      <div className="mt-4 space-y-3">
-        <Button variant="ghost" onClick={addService}>{t('addService')}</Button>
-        {services.map((service, index) => (
-          <div key={index} className="grid gap-2 rounded-xl border border-line p-3 sm:grid-cols-3">
-            <Input placeholder="RU" value={service.nameRu} onChange={(event) => setServices((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, nameRu: event.target.value } : item))} />
-            <Input placeholder="HE" value={service.nameHe} onChange={(event) => setServices((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, nameHe: event.target.value } : item))} />
-            <Input placeholder="EN" value={service.nameEn} onChange={(event) => setServices((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, nameEn: event.target.value } : item))} />
-          </div>
-        ))}
-      </div>
-      <Button className="mt-4" disabled={saving} onClick={() => void save()}>{t('saveCategory')}</Button>
+      <section className="mt-4 rounded-xl border border-line p-3">
+        <h3 className="admin-sector-heading">{t('nav_services')}</h3>
+        <div className="mb-3 flex justify-end">
+          <Button variant="ghost" onClick={addService}>{t('addService')}</Button>
+        </div>
+        <div className="space-y-3">
+          {services.map((service, index) => (
+            <div key={index} className="rounded-xl border border-line p-3">
+              <h4 className="admin-sector-heading">{t('serviceNames')}</h4>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <Input placeholder="RU" value={service.nameRu} onChange={(event) => setServices((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, nameRu: event.target.value } : item))} />
+                <Input placeholder="HE" value={service.nameHe} onChange={(event) => setServices((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, nameHe: event.target.value } : item))} />
+                <Input placeholder="EN" value={service.nameEn} onChange={(event) => setServices((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, nameEn: event.target.value } : item))} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+      <ModalFooter>
+        <Button disabled={saving} onClick={() => void save()}>{t('saveCategory')}</Button>
+      </ModalFooter>
     </Modal>
   );
 }
@@ -474,11 +529,80 @@ function Preview({ categories, services }: { categories: CategoryRow[]; services
   );
 }
 
+type ServiceSortColumn = 'name' | 'category' | 'duration' | 'price' | 'serviceMode' | 'payment' | 'visible';
+
 function ServicesPanel({ isAdmin }: { isAdmin: boolean }) {
   const { t, i18n } = useTranslation();
   const catalog = useCatalog(true);
   const [editing, setEditing] = useState<ServiceRow | null>(null);
   const [creating, setCreating] = useState(false);
+  const [sortColumn, setSortColumn] = useState<ServiceSortColumn | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+
+  const toggleSort = (column: ServiceSortColumn) => {
+    const next = toggleSortState(sortColumn, column, sortDirection);
+    setSortColumn(next.column);
+    setSortDirection(next.direction);
+  };
+
+  const categoryName = useCallback(
+    (categoryId: string) => {
+      const category = catalog.categories.find((item) => item.id === categoryId);
+      return category ? localized({ ru: category.name_ru, he: category.name_he, en: category.name_en }, i18n.language).toLowerCase() : '';
+    },
+    [catalog.categories, i18n.language],
+  );
+
+  const serviceModeKey = (service: ServiceRow) =>
+    [service.onsite_available && 'onsite', service.remote_available && 'remote', service.workshop_available && 'workshop'].filter(Boolean).join(', ');
+
+  const priceSortKey = (service: ServiceRow) => (service.price != null ? service.price : t(`price_${service.price_type}`).toLowerCase());
+
+  const visibleServices = useMemo(
+    () => catalog.services.filter((service) => !service.archived_at),
+    [catalog.services],
+  );
+
+  const sortedServices = useMemo(() => {
+    if (!sortColumn) return visibleServices;
+    return [...visibleServices].sort((left, right) => {
+      let leftValue: string | number | boolean;
+      let rightValue: string | number | boolean;
+      switch (sortColumn) {
+        case 'name':
+          leftValue = localized({ ru: left.name_ru, he: left.name_he, en: left.name_en }, i18n.language).toLowerCase();
+          rightValue = localized({ ru: right.name_ru, he: right.name_he, en: right.name_en }, i18n.language).toLowerCase();
+          break;
+        case 'category':
+          leftValue = categoryName(left.category_id);
+          rightValue = categoryName(right.category_id);
+          break;
+        case 'duration':
+          leftValue = left.default_duration_minutes;
+          rightValue = right.default_duration_minutes;
+          break;
+        case 'price':
+          leftValue = priceSortKey(left);
+          rightValue = priceSortKey(right);
+          break;
+        case 'serviceMode':
+          leftValue = serviceModeKey(left);
+          rightValue = serviceModeKey(right);
+          break;
+        case 'payment':
+          leftValue = t(`policy_${left.payment_policy}`).toLowerCase();
+          rightValue = t(`policy_${right.payment_policy}`).toLowerCase();
+          break;
+        default:
+          leftValue = left.active;
+          rightValue = right.active;
+          break;
+      }
+      return compareSortValues(leftValue, rightValue, sortDirection);
+    });
+  }, [visibleServices, sortColumn, sortDirection, categoryName, i18n.language, t]);
+
+  const headClass = 'px-3 py-3';
 
   return (
     <div className="space-y-4">
@@ -487,19 +611,24 @@ function ServicesPanel({ isAdmin }: { isAdmin: boolean }) {
         {isAdmin ? <Button onClick={() => setCreating(true)}>{t('newService')}</Button> : null}
       </div>
       <div className="overflow-x-auto rounded-2xl border border-line bg-surface">
-        <table className="min-w-full text-sm">
-          <thead className="text-muted">
+        <table className="table-cols-center table-data-start-2-6 min-w-full text-sm">
+          <thead>
             <tr>
-              {[t('service'), t('category'), t('duration'), t('price'), t('serviceMode'), t('payment'), t('visible'), t('actions')].map((label) => (
-                <th key={label} className="px-3 py-3 text-start font-medium">{label}</th>
-              ))}
+              <SortableTableHead column="name" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('service')} className={headClass} />
+              <SortableTableHead column="category" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('category')} className={headClass} />
+              <SortableTableHead column="duration" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('duration')} className={headClass} />
+              <SortableTableHead column="price" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('price')} className={headClass} />
+              <SortableTableHead column="serviceMode" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('serviceMode')} className={headClass} />
+              <SortableTableHead column="payment" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('payment')} className={headClass} />
+              <SortableTableHead column="visible" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('visible')} className={headClass} />
+              <TableHead label={t('actions')} className={headClass} />
             </tr>
           </thead>
           <tbody>
-            {catalog.services.filter((service) => !service.archived_at).map((service) => {
+            {sortedServices.map((service) => {
               const category = catalog.categories.find((item) => item.id === service.category_id);
               return (
-                <tr key={service.id} className="border-t border-line">
+                <tr key={service.id}>
                   <td className="px-3 py-3">{localized({ ru: service.name_ru, he: service.name_he, en: service.name_en }, i18n.language)}</td>
                   <td className="px-3 py-3">{category ? localized({ ru: category.name_ru, he: category.name_he, en: category.name_en }, i18n.language) : ''}</td>
                   <td className="px-3 py-3">{service.default_duration_minutes}</td>
@@ -621,86 +750,311 @@ function ServiceForm({
 
   return (
     <Modal title={initial ? t('edit') : t('newService')} onClose={onClose}>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label={t('category')}>
-          <Select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
-            {categories.filter((category) => !category.archived_at).map((category) => (
-              <option key={category.id} value={category.id}>{category.name_ru}</option>
-            ))}
-          </Select>
-        </Field>
-        <Field label={t('durationMinutes')}><Input type="number" min={15} max={720} value={duration} onChange={(event) => setDuration(Number(event.target.value))} /></Field>
-        <Field label={t('nameRu')}><Input value={nameRu} onChange={(event) => setNameRu(event.target.value)} /></Field>
-        <Field label={t('nameHe')}><Input value={nameHe} onChange={(event) => setNameHe(event.target.value)} /></Field>
-        <Field label={t('nameEn')}><Input value={nameEn} onChange={(event) => setNameEn(event.target.value)} /></Field>
-        <Field label={t('priceType')}>
-          <Select value={priceType} onChange={(event) => setPriceType(event.target.value as PriceType)}>
-            {PRICE_TYPES.map((item) => <option key={item} value={item}>{t(`price_${item}`)}</option>)}
-          </Select>
-        </Field>
-        <Field label={t('price')}><Input value={price} onChange={(event) => setPrice(event.target.value)} /></Field>
-        <Field label={t('paymentPolicy')}>
-          <Select value={policy} onChange={(event) => setPolicy(event.target.value as PaymentPolicy)}>
-            {PAYMENT_POLICIES.map((item) => <option key={item} value={item}>{t(`policy_${item}`)}</option>)}
-          </Select>
-        </Field>
-      </div>
-      <div className="mt-3 flex flex-wrap gap-4 text-sm">
-        <label className="flex items-center gap-2"><input type="checkbox" checked={onsite} onChange={(event) => setOnsite(event.target.checked)} />{t('mode_onsite')}</label>
-        <label className="flex items-center gap-2"><input type="checkbox" checked={remote} onChange={(event) => setRemote(event.target.checked)} />{t('mode_remote')}</label>
-        <label className="flex items-center gap-2"><input type="checkbox" checked={workshop} onChange={(event) => setWorkshop(event.target.checked)} />{t('mode_workshop')}</label>
-        <label className="flex items-center gap-2"><input type="checkbox" checked={requiresDevice} onChange={(event) => setRequiresDevice(event.target.checked)} />{t('requiresDevice')}</label>
-        <label className="flex items-center gap-2"><input type="checkbox" checked={requiresOs} onChange={(event) => setRequiresOs(event.target.checked)} />{t('requiresOs')}</label>
-        <label className="flex items-center gap-2"><input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />{t('visible')}</label>
-      </div>
-      {initial ? (
-        <div className="mt-4 space-y-2">
-          {methods.map((method) => (
-            <label key={method.id} className="flex items-center justify-between gap-3 text-sm">
-              <span>{method.name_en}</span>
-              <Switch checked={enabledMethods[method.id] !== false} label={method.name_en} onChange={(checked) => setEnabledMethods((current) => ({ ...current, [method.id]: checked }))} />
-            </label>
-          ))}
+      <section className="rounded-xl border border-line p-3">
+        <h3 className="admin-sector-heading">{t('serviceNames')}</h3>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Field label={t('nameRu')}><Input value={nameRu} onChange={(event) => setNameRu(event.target.value)} /></Field>
+          <Field label={t('nameHe')}><Input value={nameHe} onChange={(event) => setNameHe(event.target.value)} /></Field>
+          <Field label={t('nameEn')}><Input value={nameEn} onChange={(event) => setNameEn(event.target.value)} /></Field>
         </div>
+      </section>
+      <section className="mt-4 rounded-xl border border-line p-3">
+        <h3 className="admin-sector-heading">{t('serviceParameters')}</h3>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label={t('category')}>
+            <Select value={categoryId} onChange={(event) => setCategoryId(event.target.value)}>
+              {categories.filter((category) => !category.archived_at).map((category) => (
+                <option key={category.id} value={category.id}>{category.name_ru}</option>
+              ))}
+            </Select>
+          </Field>
+          <Field label={t('durationMinutes')}><Input type="number" min={15} max={720} value={duration} onChange={(event) => setDuration(Number(event.target.value))} /></Field>
+          <Field label={t('priceType')}>
+            <Select value={priceType} onChange={(event) => setPriceType(event.target.value as PriceType)}>
+              {PRICE_TYPES.map((item) => <option key={item} value={item}>{t(`price_${item}`)}</option>)}
+            </Select>
+          </Field>
+          <Field label={t('price')}><Input value={price} onChange={(event) => setPrice(event.target.value)} /></Field>
+          <Field label={t('paymentPolicy')}>
+            <Select value={policy} onChange={(event) => setPolicy(event.target.value as PaymentPolicy)}>
+              {PAYMENT_POLICIES.map((item) => <option key={item} value={item}>{t(`policy_${item}`)}</option>)}
+            </Select>
+          </Field>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-4 text-sm">
+          <label className="flex items-center gap-2"><input type="checkbox" checked={onsite} onChange={(event) => setOnsite(event.target.checked)} />{t('mode_onsite')}</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={remote} onChange={(event) => setRemote(event.target.checked)} />{t('mode_remote')}</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={workshop} onChange={(event) => setWorkshop(event.target.checked)} />{t('mode_workshop')}</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={requiresDevice} onChange={(event) => setRequiresDevice(event.target.checked)} />{t('requiresDevice')}</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={requiresOs} onChange={(event) => setRequiresOs(event.target.checked)} />{t('requiresOs')}</label>
+          <label className="flex items-center gap-2"><input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />{t('visible')}</label>
+        </div>
+      </section>
+      {initial ? (
+        <section className="mt-4 rounded-xl border border-line p-3">
+          <h3 className="admin-sector-heading">{t('paytab_methods')}</h3>
+          <div className="space-y-2">
+            {methods.map((method) => (
+              <label key={method.id} className="flex items-center justify-between gap-3 text-sm">
+                <span>{method.name_en}</span>
+                <Switch checked={enabledMethods[method.id] !== false} label={method.name_en} onChange={(checked) => setEnabledMethods((current) => ({ ...current, [method.id]: checked }))} />
+              </label>
+            ))}
+          </div>
+        </section>
       ) : null}
-      <Button className="mt-4" onClick={() => void save()}>{t('save')}</Button>
+      <ModalFooter>
+        <Button onClick={() => void save()}>{t('save')}</Button>
+      </ModalFooter>
     </Modal>
   );
+}
+
+type StaffSortColumn = 'first_name' | 'last_name' | 'phone' | 'address' | 'email' | 'role' | 'visible';
+type StaffTextField = 'first_name' | 'last_name' | 'phone' | 'address';
+
+function staffProfileFields(row: Pick<StaffRow, 'first_name' | 'last_name' | 'phone' | 'address'>): StaffProfileInput {
+  return {
+    firstName: row.first_name,
+    lastName: row.last_name,
+    phone: row.phone,
+    address: row.address,
+  };
 }
 
 function StaffPanel({ isAdmin }: { isAdmin: boolean }) {
   const { t } = useTranslation();
   const [rows, setRows] = useState<StaffRow[]>([]);
-  const [email, setEmail] = useState('');
-  const [role, setRole] = useState<'admin' | 'technician'>('technician');
-  const [active, setActive] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [sortColumn, setSortColumn] = useState<StaffSortColumn | null>('last_name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [drafts, setDrafts] = useState<Record<string, Partial<Record<StaffTextField, string>>>>({});
 
-  const refresh = useCallback(() => fetchStaff().then(setRows).catch(() => toast.error(t('fetchError'))), [t]);
+  const refresh = useCallback(() => fetchStaff().then((data) => {
+    setRows(data);
+    setDrafts({});
+  }).catch(() => toast.error(t('fetchError'))), [t]);
   useEffect(() => { void refresh(); }, [refresh]);
+
+  const toggleSort = (column: StaffSortColumn) => {
+    const next = toggleSortState(sortColumn, column, sortDirection);
+    setSortColumn(next.column);
+    setSortDirection(next.direction);
+  };
+
+  const sortedRows = useMemo(() => {
+    if (!sortColumn) return rows;
+    return [...rows].sort((left, right) => {
+      let leftValue: string | number | boolean;
+      let rightValue: string | number | boolean;
+      if (sortColumn === 'email') {
+        leftValue = (left.email || left.user_id).toLowerCase();
+        rightValue = (right.email || right.user_id).toLowerCase();
+      } else if (sortColumn === 'role') {
+        leftValue = left.role;
+        rightValue = right.role;
+      } else if (sortColumn === 'visible') {
+        leftValue = left.active;
+        rightValue = right.active;
+      } else {
+        leftValue = (left[sortColumn] ?? '').toLowerCase();
+        rightValue = (right[sortColumn] ?? '').toLowerCase();
+      }
+      return compareSortValues(leftValue, rightValue, sortDirection);
+    });
+  }, [rows, sortColumn, sortDirection]);
+
+  const fieldValue = (row: StaffRow, field: StaffTextField): string => {
+    const draft = drafts[row.user_id]?.[field];
+    if (draft !== undefined) return draft;
+    return row[field] ?? '';
+  };
+
+  const setDraft = (userId: string, field: StaffTextField, value: string) => {
+    setDrafts((current) => ({ ...current, [userId]: { ...current[userId], [field]: value } }));
+  };
+
+  const clearDraft = (userId: string, field: StaffTextField) => {
+    setDrafts((current) => {
+      const next = { ...current[userId] };
+      delete next[field];
+      const copy = { ...current };
+      if (Object.keys(next).length === 0) delete copy[userId];
+      else copy[userId] = next;
+      return copy;
+    });
+  };
+
+  const mergedRow = (row: StaffRow): StaffRow => {
+    const draft = drafts[row.user_id];
+    if (!draft) return row;
+    return {
+      ...row,
+      first_name: draft.first_name !== undefined ? draft.first_name || null : row.first_name,
+      last_name: draft.last_name !== undefined ? draft.last_name || null : row.last_name,
+      phone: draft.phone !== undefined ? draft.phone || null : row.phone,
+      address: draft.address !== undefined ? draft.address || null : row.address,
+    };
+  };
+
+  const persistStaff = (row: StaffRow, patch: Partial<StaffRow>) => {
+    if (!isAdmin || !row.email) return;
+    const next: StaffRow = { ...mergedRow(row), ...patch };
+    void setStaff(next.email, next.role, next.active, undefined, staffProfileFields(next))
+      .then(() => { toast.success(t('settingsSaved')); return refresh(); })
+      .catch((error: unknown) => toast.error(t(errorI18nKey(error instanceof BookingApiError ? error.code : 'INVALID_INPUT'))));
+  };
+
+  const saveTextField = (row: StaffRow, field: StaffTextField) => {
+    const value = fieldValue(row, field).trim();
+    const previous = (row[field] ?? '').trim();
+    clearDraft(row.user_id, field);
+    if (value === previous) return;
+    persistStaff(row, { [field]: value || null } as Partial<StaffRow>);
+  };
+
+  const headClass = 'px-3 py-3 whitespace-nowrap';
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">{t('nav_technicians')}</h1>
-      {rows.map((row) => (
-        <Card key={row.user_id} className="flex items-center justify-between p-4 text-sm">
-          <span>{row.email || row.user_id}</span>
-          <Badge>{t(`role_${row.role}`)} · {row.active ? t('visible') : t('hidden')}</Badge>
-        </Card>
-      ))}
-      {isAdmin ? (
-        <Card className="grid gap-3 p-4 sm:grid-cols-2">
-          <Field label={t('email')}><Input value={email} onChange={(event) => setEmail(event.target.value)} /></Field>
-          <Field label={t('role')}>
-            <Select value={role} onChange={(event) => setRole(event.target.value as 'admin' | 'technician')}>
-              <option value="admin">{t('role_admin')}</option>
-              <option value="technician">{t('role_technician')}</option>
-            </Select>
-          </Field>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />{t('visible')}</label>
-          <Button onClick={() => void setStaff(email, role, active).then(() => { toast.success(t('settingsSaved')); setEmail(''); return refresh(); }).catch((error: unknown) => toast.error(t(errorI18nKey(error instanceof BookingApiError ? error.code : 'INVALID_INPUT'))))}>{t('save')}</Button>
-        </Card>
-      ) : <Alert>{t('settingsReadOnly')}</Alert>}
+      <div className="relative">
+        <h1 className="text-center text-2xl font-semibold">{t('nav_technicians')}</h1>
+        {isAdmin ? (
+          <div className="absolute end-0 top-0">
+            <Button onClick={() => setOpen(true)}>{t('newTechnician')}</Button>
+          </div>
+        ) : null}
+      </div>
+      {!isAdmin ? <Alert>{t('settingsReadOnly')}</Alert> : null}
+      {sortedRows.length === 0 ? (
+        <EmptyState title={t('noTechnicians')} />
+      ) : (
+        <div className="overflow-x-auto rounded-2xl border border-line bg-surface">
+          <table className="table-cols-center min-w-full text-sm">
+            <thead>
+              <tr>
+                <SortableTableHead column="first_name" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('firstName')} className={headClass} />
+                <SortableTableHead column="last_name" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('lastName')} className={headClass} />
+                <SortableTableHead column="phone" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('phone')} className={headClass} />
+                <SortableTableHead column="address" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('address')} className={headClass} />
+                <SortableTableHead column="email" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('email')} className={headClass} />
+                <SortableTableHead column="role" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('role')} className={headClass} />
+                <SortableTableHead column="visible" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('visible')} className={headClass} />
+              </tr>
+            </thead>
+            <tbody>
+              {sortedRows.map((row) => (
+                <tr key={row.user_id}>
+                  {(['first_name', 'last_name', 'phone', 'address'] as const).map((field) => (
+                    <td key={field} className="px-3 py-2">
+                      {isAdmin && row.email ? (
+                        <Input
+                          value={fieldValue(row, field)}
+                          onChange={(event) => setDraft(row.user_id, field, event.target.value)}
+                          onBlur={() => saveTextField(row, field)}
+                          className="min-w-[8rem]"
+                        />
+                      ) : (
+                        <span>{row[field] || '—'}</span>
+                      )}
+                    </td>
+                  ))}
+                  <td className="px-3 py-3 text-start font-medium">{row.email || row.user_id}</td>
+                  <td className="px-3 py-3">
+                    {isAdmin && row.email ? (
+                      <Select
+                        value={row.role}
+                        onChange={(event) => persistStaff(row, { role: event.target.value as 'admin' | 'technician' })}
+                        className="min-w-[10rem]"
+                      >
+                        <option value="admin">{t('role_admin')}</option>
+                        <option value="technician">{t('role_technician')}</option>
+                      </Select>
+                    ) : (
+                      <Badge>{t(`role_${row.role}`)}</Badge>
+                    )}
+                  </td>
+                  <td className="px-3 py-3">
+                    <Switch
+                      checked={row.active}
+                      label={row.active ? t('visible') : t('hidden')}
+                      onChange={(checked) => {
+                        if (!isAdmin) return;
+                        persistStaff(row, { active: checked });
+                      }}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {open ? (
+        <StaffCreator
+          onClose={() => setOpen(false)}
+          onSaved={() => { setOpen(false); void refresh(); }}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function StaffCreator({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const { t } = useTranslation();
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [role, setRole] = useState<'admin' | 'technician'>('technician');
+  const [active, setActive] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await setStaff(email, role, active, password, {
+        firstName: firstName.trim() || null,
+        lastName: lastName.trim() || null,
+        phone: phone.trim() || null,
+        address: address.trim() || null,
+      });
+      toast.success(t('settingsSaved'));
+      onSaved();
+    } catch (error: unknown) {
+      toast.error(t(errorI18nKey(error instanceof BookingApiError ? error.code : 'INVALID_INPUT')));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title={t('newTechnician')} onClose={onClose}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label={t('firstName')}><Input value={firstName} onChange={(event) => setFirstName(event.target.value)} autoComplete="off" /></Field>
+        <Field label={t('lastName')}><Input value={lastName} onChange={(event) => setLastName(event.target.value)} autoComplete="off" /></Field>
+        <Field label={t('phone')}><Input value={phone} onChange={(event) => setPhone(event.target.value)} autoComplete="off" /></Field>
+        <Field label={t('address')}><Input value={address} onChange={(event) => setAddress(event.target.value)} autoComplete="off" /></Field>
+        <Field label={t('email')}><Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} autoComplete="off" /></Field>
+        <Field label={t('password')}>
+          <Input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" />
+        </Field>
+        <p className="text-xs text-muted sm:col-span-2">{t('staffPasswordHint')}</p>
+        <Field label={t('role')}>
+          <Select value={role} onChange={(event) => setRole(event.target.value as 'admin' | 'technician')}>
+            <option value="admin">{t('role_admin')}</option>
+            <option value="technician">{t('role_technician')}</option>
+          </Select>
+        </Field>
+        <label className="flex items-center gap-2 self-end text-sm"><input type="checkbox" checked={active} onChange={(event) => setActive(event.target.checked)} />{t('visible')}</label>
+      </div>
+      <ModalFooter>
+        <Button variant="ghost" onClick={onClose}>{t('back')}</Button>
+        <Button disabled={saving || !email.trim()} onClick={() => void save()}>{t('save')}</Button>
+      </ModalFooter>
+    </Modal>
   );
 }
 

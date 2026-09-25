@@ -15,3 +15,39 @@
     outline-offset: 2px;
   }
 }
+
+@layer components {
+  .table-cols-center {
+    @apply border-collapse;
+  }
+
+  .table-cols-center th,
+  .table-cols-center td {
+    @apply border border-line;
+  }
+
+  .table-cols-center thead th {
+    @apply bg-canvas text-center text-sm font-semibold text-ink;
+  }
+
+  .table-cols-center td:first-child {
+    @apply text-start;
+  }
+
+  .table-cols-center td:not(:first-child) {
+    @apply text-center;
+  }
+
+  .table-cols-center td:not(:first-child) > .flex {
+    @apply justify-center;
+  }
+
+  .table-cols-center.table-data-start-2-6 td:nth-child(2),
+  .table-cols-center.table-data-start-2-6 td:nth-child(6) {
+    @apply text-start;
+  }
+
+  .admin-sector-heading {
+    @apply -mx-3 -mt-3 mb-3 rounded-t-xl border-b border-blue-100 bg-blue-50 px-3 py-2 text-center text-sm font-semibold text-primary;
+  }
+}

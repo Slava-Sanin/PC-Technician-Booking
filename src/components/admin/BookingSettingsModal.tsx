@@ -235,14 +235,16 @@ export function BookingSettingsModal({
           </label>
 
           {canEdit && (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => void handleSave()}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
-            >
-              {saving ? t('saving') : t('saveSettings')}
-            </button>
+            <div className="flex justify-center pt-2">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void handleSave()}
+                className="rounded-md bg-blue-600 px-6 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {saving ? t('saving') : t('saveSettings')}
+              </button>
+            </div>
           )}
         </div>
       </div>

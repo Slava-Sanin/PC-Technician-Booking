@@ -131,6 +131,8 @@ const resources = {
       error_RATE_LIMITED: 'Слишком много попыток. Подождите и попробуйте снова.',
       error_UNAUTHORIZED: 'Требуется вход',
       error_FORBIDDEN: 'Недостаточно прав',
+      error_STAFF_USER_NOT_FOUND: 'Пользователь с таким email не найден',
+      error_STAFF_PASSWORD_REQUIRED: 'Укажите временный пароль (не менее 6 символов) для нового техника',
       error_INTERNAL_ERROR: 'Не удалось выполнить запрос. Попробуйте ещё раз.'
     }
   },
@@ -261,6 +263,8 @@ const resources = {
       error_RATE_LIMITED: 'יותר מדי ניסיונות. המתינו ונסו שוב.',
       error_UNAUTHORIZED: 'נדרשת כניסה',
       error_FORBIDDEN: 'אין הרשאות מספיקות',
+      error_STAFF_USER_NOT_FOUND: 'לא נמצא משתמש עם כתובת האימייל הזו',
+      error_STAFF_PASSWORD_REQUIRED: 'הזינו סיסמה זמנית (לפחות 6 תווים) לטכנאי חדש',
       error_INTERNAL_ERROR: 'לא ניתן להשלים את הבקשה. נסו שוב.'
     }
   },
@@ -391,6 +395,8 @@ const resources = {
       error_RATE_LIMITED: 'Too many attempts. Wait and try again.',
       error_UNAUTHORIZED: 'Sign-in is required',
       error_FORBIDDEN: 'Insufficient permissions',
+      error_STAFF_USER_NOT_FOUND: 'No user found with this email address',
+      error_STAFF_PASSWORD_REQUIRED: 'Enter a temporary password (at least 6 characters) for the new technician',
       error_INTERNAL_ERROR: 'The request could not be completed. Please try again.'
     }
   }
