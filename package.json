@@ -12,7 +12,8 @@
     "supabase": "supabase",
     "db:push": "supabase db push",
     "functions:deploy": "supabase functions deploy",
-    "functions:deploy:staff": "supabase functions deploy admin-set-staff"
+    "functions:deploy:staff": "supabase functions deploy admin-set-staff",
+    "email:test": "node scripts/resend-hello.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.7",
@@ -25,7 +26,8 @@
     "react-calendar": "^4.8.0",
     "react-dom": "^18.3.1",
     "react-hot-toast": "^2.4.1",
-    "react-i18next": "^14.0.5"
+    "react-i18next": "^14.0.5",
+    "resend": "^4.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^9.9.1",

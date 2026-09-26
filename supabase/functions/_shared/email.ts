@@ -1,3 +1,5 @@
+import { Resend } from 'npm:resend@4.0.1';
+
 export async function sendVerificationEmail(input: {
   to: string;
   subject: string;
@@ -8,34 +10,35 @@ export async function sendVerificationEmail(input: {
   const from = Deno.env.get('VERIFICATION_EMAIL_FROM') || 'onboarding@resend.dev';
 
   if (!apiKey) {
-    console.error('email_not_configured');
     if (Deno.env.get('VERIFICATION_LOG_CODES') === 'true') {
-      console.log('verification_email_fallback', { to: input.to, text: input.text, confirmUrl: input.confirmUrl });
+      console.warn('verification_email_dev_mode', {
+        to: input.to,
+        subject: input.subject,
+        body: input.text,
+        confirmUrl: input.confirmUrl ?? null,
+        hint: 'Resend не настроен: код выше. Supabase → Edge Functions → Logs (customer-auth / create-booking).',
+      });
+      return true;
     }
-    return Deno.env.get('VERIFICATION_LOG_CODES') === 'true';
+    console.error('email_not_configured');
+    return false;
   }
 
   const html = input.confirmUrl
     ? `<p>${input.text}</p><p><a href="${input.confirmUrl}">${input.confirmUrl}</a></p>`
     : `<p>${input.text}</p>`;
 
-  const response = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from,
-      to: [input.to],
-      subject: input.subject,
-      text: input.confirmUrl ? `${input.text}\n\n${input.confirmUrl}` : input.text,
-      html,
-    }),
+  const resend = new Resend(apiKey);
+  const { error } = await resend.emails.send({
+    from,
+    to: input.to,
+    subject: input.subject,
+    text: input.confirmUrl ? `${input.text}\n\n${input.confirmUrl}` : input.text,
+    html,
   });
 
-  if (!response.ok) {
-    console.error('email_provider_failed', { status: response.status });
+  if (error) {
+    console.error('email_provider_failed', { message: error.message, name: error.name });
     return false;
   }
 

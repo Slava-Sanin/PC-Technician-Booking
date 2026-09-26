@@ -136,6 +136,9 @@ VITE_SUPABASE_ANON_KEY
 TWILIO_ACCOUNT_SID
 TWILIO_AUTH_TOKEN
 TWILIO_PHONE_NUMBER
+RESEND_API_KEY
+VERIFICATION_EMAIL_FROM
+PUBLIC_SITE_URL
 RATE_LIMIT_PEPPER
 PAYMENT_WEBHOOK_SECRET
 CARD_CHECKOUT_SECRET
@@ -143,7 +146,15 @@ PAYPAL_CLIENT_ID
 PAYPAL_CLIENT_SECRET
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY` платформа подставляет в функции сама.
+Опционально для локальной отладки без почты: `VERIFICATION_LOG_CODES=true` (коды видны в логах Edge Function).
+
+`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` платформа подставляет в функции сама.
+
+Задать секреты:
+
+```bash
+supabase secrets set RESEND_API_KEY=re_... VERIFICATION_EMAIL_FROM="noreply@example.com" PUBLIC_SITE_URL="https://your-site.example"
+```
 
 ## Development
 

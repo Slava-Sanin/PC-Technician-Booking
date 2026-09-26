@@ -29,13 +29,16 @@ export function CustomerAuthModal({
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [verifyChannel, setVerifyChannel] = useState<'email' | 'sms'>('sms');
+  const [verifyChannel, setVerifyChannel] = useState<'email' | 'sms'>('email');
   const [challengeId, setChallengeId] = useState('');
   const [maskedTarget, setMaskedTarget] = useState('');
   const [code, setCode] = useState('');
   const [linkStaffAuth, setLinkStaffAuth] = useState(false);
 
   if (!open) return null;
+
+  const resolvedVerifyChannel: 'email' | 'sms' =
+    verifyChannel === 'email' && email.trim() ? 'email' : 'sms';
 
   const resetToLogin = () => {
     setMode('login');
@@ -76,14 +79,13 @@ export function CustomerAuthModal({
         email: email.trim() || undefined,
         phone: phone.trim() || undefined,
         password,
-        verifyChannel,
+        verifyChannel: resolvedVerifyChannel,
       });
       setChallengeId(result.challengeId);
       setMaskedTarget(result.maskedTarget);
       setLinkStaffAuth(Boolean(result.linkStaffAuth));
       setMode('verify');
       toast.success(t('verificationCodeSent', { target: result.maskedTarget }));
-      if (result.linkStaffAuth) toast(t('customerRegisterStaffLinkHint'), { icon: 'ℹ️' });
     } catch (error) {
       handleError(error);
     } finally {
@@ -140,10 +142,14 @@ export function CustomerAuthModal({
             <Field label={t('email')}><Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></Field>
             <Field label={t('password')}><Input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></Field>
             <p className="text-xs text-muted">{t('customerRegisterPasswordHint')}</p>
-            <Field label={t('customerVerifyChannel')}>
-              <select className="w-full rounded-lg border border-line px-3 py-2 text-sm" value={verifyChannel} onChange={(event) => setVerifyChannel(event.target.value as 'email' | 'sms')}>
+            <Field label={t('customerVerifyChannel')} controlClassName="max-w-xs">
+              <select
+                className="form-control form-control-select w-full max-w-xs"
+                value={resolvedVerifyChannel}
+                onChange={(event) => setVerifyChannel(event.target.value as 'email' | 'sms')}
+              >
+                <option value="email" disabled={!email.trim()}>{t('customerVerifyByEmail')}</option>
                 <option value="sms">{t('customerVerifyBySms')}</option>
-                <option value="email">{t('customerVerifyByEmail')}</option>
               </select>
             </Field>
             <Button className="w-full" disabled={loading}>{loading ? t('submitting') : t('customerSendVerification')}</Button>
@@ -153,12 +159,23 @@ export function CustomerAuthModal({
 
         {mode === 'verify' ? (
           <form className="space-y-3" onSubmit={(event) => void handleRegisterVerify(event)}>
-            {linkStaffAuth ? <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-ink">{t('customerRegisterStaffLinkHint')}</p> : null}
+            {linkStaffAuth ? <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-ink">{t('customerRegisterStaffLinkVerifyHint')}</p> : null}
             <p className="text-sm text-muted">{t('verificationCodeSent', { target: maskedTarget })}</p>
-            <Field label={t('verificationCode')}>
-              <Input required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={code} onChange={(event) => setCode(event.target.value)} />
+            <Field label={t('verificationCode')} controlClassName="max-w-[9rem]">
+              <Input
+                required
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                placeholder={t('verificationCodeDigitsHint')}
+                className="tracking-widest"
+                value={code}
+                onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+              />
             </Field>
-            <Button className="w-full" disabled={loading}>{loading ? t('submitting') : t('customerConfirmRegistration')}</Button>
+            <Button className="w-full" disabled={loading || code.length !== 6}>{loading ? t('submitting') : t('customerConfirmRegistration')}</Button>
+            <button type="button" className="w-full text-sm text-primary" onClick={() => setMode('register')}>{t('back')}</button>
           </form>
         ) : null}
       </div>

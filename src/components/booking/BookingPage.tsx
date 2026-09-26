@@ -178,7 +178,7 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<CreateBookingResponse | null>(null);
-  const [confirmChannel, setConfirmChannel] = useState<'email' | 'sms'>('sms');
+  const [confirmChannel, setConfirmChannel] = useState<'email' | 'sms'>('email');
   const [confirmationId, setConfirmationId] = useState('');
   const [confirmationTarget, setConfirmationTarget] = useState('');
   const [verificationCode, setVerificationCode] = useState('');
@@ -253,6 +253,8 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
     return base;
   }, [payMode]);
   const current = steps[Math.min(step, steps.length - 1)];
+  const resolvedConfirmChannel: 'email' | 'sms' =
+    confirmChannel === 'email' && email.trim() ? 'email' : 'sms';
   const activeCategory = categories.find((category) => category.id === categoryId) ?? categories[0];
   const duration = sumDuration(selected);
   const total = bookingTotal(selected.map((service) => ({
@@ -334,13 +336,13 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
       toast.error(t('error_INVALID_INPUT'));
       return;
     }
-    if (confirmChannel === 'email' && !email.trim()) {
+    if (resolvedConfirmChannel === 'email' && !email.trim()) {
       toast.error(t('error_EMAIL_REQUIRED'));
       return;
     }
     setSubmitting(true);
     try {
-      const pending = await requestBookingConfirmation(request, confirmChannel);
+      const pending = await requestBookingConfirmation(request, resolvedConfirmChannel);
       setConfirmationId(pending.confirmationId);
       setConfirmationTarget(pending.maskedTarget);
       setCodeSent(true);
@@ -616,10 +618,13 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
 
             {current === 'verify' ? (
               <div className="space-y-3">
-                <Field label={t('customerVerifyChannel')}>
-                  <Select value={confirmChannel} onChange={(event) => { setConfirmChannel(event.target.value as 'email' | 'sms'); setCodeSent(false); setConfirmationId(''); }}>
-                    <option value="sms">{t('customerVerifyBySms')}</option>
+                <Field label={t('customerVerifyChannel')} controlClassName="max-w-xs">
+                  <Select
+                    value={resolvedConfirmChannel}
+                    onChange={(event) => { setConfirmChannel(event.target.value as 'email' | 'sms'); setCodeSent(false); setConfirmationId(''); }}
+                  >
                     <option value="email" disabled={!email.trim()}>{t('customerVerifyByEmail')}</option>
+                    <option value="sms">{t('customerVerifyBySms')}</option>
                   </Select>
                 </Field>
                 <Button variant="ghost" disabled={submitting} onClick={() => void sendConfirmationCode()}>
@@ -628,8 +633,16 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
                 {codeSent ? (
                   <>
                     <p className="text-sm text-muted">{t('verificationCodeSent', { target: confirmationTarget })}</p>
-                    <Field label={t('verificationCode')}>
-                      <Input inputMode="numeric" maxLength={6} value={verificationCode} onChange={(event) => setVerificationCode(event.target.value)} />
+                    <Field label={t('verificationCode')} controlClassName="max-w-[9rem]">
+                      <Input
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        placeholder={t('verificationCodeDigitsHint')}
+                        className="tracking-widest"
+                        value={verificationCode}
+                        onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                      />
                     </Field>
                   </>
                 ) : null}
