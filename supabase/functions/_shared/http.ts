@@ -41,6 +41,17 @@ export function statusForCode(code: string): number {
       return 402;
     case 'RATE_LIMITED':
       return 429;
+    case 'VERIFICATION_EXPIRED':
+    case 'VERIFICATION_INVALID':
+    case 'VERIFICATION_LOCKED':
+    case 'EMAIL_REQUIRED':
+    case 'SMS_FAILED':
+    case 'EMAIL_FAILED':
+      return 400;
+    case 'ALREADY_REGISTERED':
+      return 409;
+    case 'INVALID_CREDENTIALS':
+      return 401;
     default:
       return 500;
   }

@@ -314,6 +314,7 @@ function CategoriesPanel({ isAdmin }: { isAdmin: boolean }) {
   const { t, i18n } = useTranslation();
   const catalog = useCatalog(true);
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<CategoryRow | null>(null);
   const [showArchived, setShowArchived] = useState(false);
   const [sortColumn, setSortColumn] = useState<CategorySortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
@@ -401,9 +402,12 @@ function CategoriesPanel({ isAdmin }: { isAdmin: boolean }) {
                         <ArrowDown className="h-4 w-4" aria-hidden />
                       </Button>
                       {isAdmin ? (
-                        <Button variant="ghost" onClick={() => void updateCategory(category.id, { archived_at: category.archived_at ? null : new Date().toISOString() }).then(() => catalog.refresh())}>
-                          {category.archived_at ? t('restore') : t('archive')}
-                        </Button>
+                        <>
+                          <Button variant="ghost" onClick={() => setEditing(category)}>{t('edit')}</Button>
+                          <Button variant="ghost" onClick={() => void updateCategory(category.id, { archived_at: category.archived_at ? null : new Date().toISOString() }).then(() => catalog.refresh())}>
+                            {category.archived_at ? t('restore') : t('archive')}
+                          </Button>
+                        </>
                       ) : null}
                     </div>
                   </td>
@@ -415,7 +419,56 @@ function CategoriesPanel({ isAdmin }: { isAdmin: boolean }) {
       </div>
       <Preview categories={catalog.categories} services={catalog.services} />
       {open ? <CategoryCreator onClose={() => setOpen(false)} onSaved={() => { setOpen(false); void catalog.refresh(); }} /> : null}
+      {editing ? (
+        <CategoryEditor
+          category={editing}
+          onClose={() => setEditing(null)}
+          onSaved={() => { setEditing(null); void catalog.refresh(); }}
+        />
+      ) : null}
     </div>
+  );
+}
+
+function CategoryEditor({
+  category,
+  onClose,
+  onSaved,
+}: {
+  category: CategoryRow;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { t } = useTranslation();
+  const [nameRu, setNameRu] = useState(category.name_ru);
+  const [nameHe, setNameHe] = useState(category.name_he);
+  const [nameEn, setNameEn] = useState(category.name_en);
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await updateCategory(category.id, { name_ru: nameRu, name_he: nameHe, name_en: nameEn });
+      toast.success(t('settingsSaved'));
+      onSaved();
+    } catch {
+      toast.error(t('updateError'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal title={t('edit')} onClose={onClose}>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Field label={t('nameRu')}><Input value={nameRu} onChange={(event) => setNameRu(event.target.value)} /></Field>
+        <Field label={t('nameHe')}><Input value={nameHe} onChange={(event) => setNameHe(event.target.value)} /></Field>
+        <Field label={t('nameEn')}><Input value={nameEn} onChange={(event) => setNameEn(event.target.value)} /></Field>
+      </div>
+      <ModalFooter>
+        <Button disabled={saving} onClick={() => void save()}>{t('saveCategory')}</Button>
+      </ModalFooter>
+    </Modal>
   );
 }
 

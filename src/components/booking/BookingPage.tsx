@@ -24,8 +24,12 @@ import { toast } from 'react-hot-toast';
 import { BrandLogo } from '../BrandLogo';
 import { LanguageSwitcher } from '../LanguageSwitcher';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, Select, Skeleton, Textarea } from '../ui';
+import { CustomerAuthModal } from '../customer/CustomerAuthModal';
+import { CustomerBookingsPanel } from '../customer/CustomerBookingsPanel';
 import { useAvailability, useMonthAvailability } from '../../hooks/useAvailability';
-import { createBooking, fetchPublicBookingConfig, fetchServiceCatalog } from '../../services/publicApi';
+import { fetchCustomerProfile, type CustomerProfile } from '../../services/customerService';
+import { confirmBooking, fetchPublicBookingConfig, fetchServiceCatalog, requestBookingConfirmation } from '../../services/publicApi';
+import { supabase } from '../../lib/supabase';
 import type { AvailabilityQuery, BankInstructions, CreateBookingResponse } from '../../types/api';
 import type { DeviceType, PublicCategory, PublicService, ServiceMode } from '../../types/catalog';
 import { DEVICE_TYPES, OPERATING_SYSTEMS, localized } from '../../types/catalog';
@@ -70,6 +74,15 @@ function CatalogIcon({ name, className = 'h-5 w-5' }: { name: string | null; cla
   return <Icon className={className} aria-hidden="true" />;
 }
 
+function formatMonthYearLabel(month: Date, locale: string): string {
+  const intlLocale = locale === 'he' ? 'he-IL' : locale === 'ru' ? 'ru-RU' : 'en-US';
+  const raw = new Intl.DateTimeFormat(intlLocale, { month: 'long', year: 'numeric' }).format(month);
+  if (locale === 'ru') {
+    return `${raw.charAt(0).toUpperCase()}${raw.slice(1).replace(' Г.', ' г.')}`;
+  }
+  return raw;
+}
+
 function PriceLabel({ service, locale }: { service: PublicService; locale: string }) {
   const { t } = useTranslation();
   if (service.priceType === 'quote' || service.price == null && service.priceType !== 'hourly') {
@@ -100,10 +113,7 @@ function MonthGrid({
   const start = new Date(month.getFullYear(), month.getMonth(), 1);
   const startOffset = start.getDay();
   const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
-  const label = new Intl.DateTimeFormat(locale === 'he' ? 'he-IL' : locale === 'ru' ? 'ru-RU' : 'en-US', {
-    month: 'long',
-    year: 'numeric',
-  }).format(month);
+  const label = formatMonthYearLabel(month, locale);
 
   return (
     <div>
@@ -111,7 +121,7 @@ function MonthGrid({
         <button type="button" className="rounded-lg p-2 hover:bg-canvas" onClick={() => onMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} aria-label="previous">
           <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
         </button>
-        <p className="font-semibold capitalize text-ink">{label}</p>
+        <p className="font-semibold text-ink">{label}</p>
         <button type="button" className="rounded-lg p-2 hover:bg-canvas" onClick={() => onMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} aria-label="next">
           <ChevronRight className="h-4 w-4 rtl:rotate-180" />
         </button>
@@ -168,6 +178,14 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<CreateBookingResponse | null>(null);
+  const [confirmChannel, setConfirmChannel] = useState<'email' | 'sms'>('sms');
+  const [confirmationId, setConfirmationId] = useState('');
+  const [confirmationTarget, setConfirmationTarget] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [codeSent, setCodeSent] = useState(false);
+  const [customer, setCustomer] = useState<CustomerProfile | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [bookingsOpen, setBookingsOpen] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState(() => calendarDateFromISO(todayISOInTimeZone(BUSINESS_TIME_ZONE)));
 
   const load = async () => {
@@ -190,6 +208,30 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
     void load();
   }, []);
 
+  const refreshCustomer = async () => {
+    try {
+      setCustomer(await fetchCustomerProfile());
+    } catch {
+      setCustomer(null);
+    }
+  };
+
+  useEffect(() => {
+    void refreshCustomer();
+    const { data: subscription } = supabase.auth.onAuthStateChange(() => {
+      void refreshCustomer();
+    });
+    return () => subscription.subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!customer) return;
+    setFirstName(customer.firstName);
+    setLastName(customer.lastName);
+    if (customer.phone) setPhone(customer.phone);
+    if (customer.email) setEmail(customer.email);
+  }, [customer]);
+
   const services = useMemo(() => categories.flatMap((category) => category.services), [categories]);
   const categoryColumns = useMemo(() => {
     const count = categories.length;
@@ -207,7 +249,7 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
   const steps = useMemo(() => {
     const base = ['services', 'mode', 'device', 'details', 'schedule'];
     if (payMode !== 'skip') base.push('payment');
-    base.push('confirm');
+    base.push('confirm', 'verify');
     return base;
   }, [payMode]);
   const current = steps[Math.min(step, steps.length - 1)];
@@ -250,13 +292,14 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
     if (current === 'details') return Boolean(firstName.trim() && lastName.trim() && phone.trim() && address.trim());
     if (current === 'schedule') return Boolean(date && time);
     if (current === 'payment') return payMode !== 'required' || Boolean(paymentCode);
+    if (current === 'verify') return codeSent && /^\d{6}$/.test(verificationCode.trim());
     return true;
   };
 
-  const submit = async () => {
-    if (!mode) return;
+  const buildBookingRequest = () => {
+    if (!mode) return null;
     const bookingLocale: 'ru' | 'he' | 'en' = locale === 'he' ? 'he' : locale === 'en' ? 'en' : 'ru';
-    const request = {
+    return {
       firstName,
       lastName,
       phone,
@@ -276,6 +319,11 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
       paymentMethodCode: payMode === 'skip' ? '' : paymentCode,
       locale: bookingLocale,
     };
+  };
+
+  const sendConfirmationCode = async () => {
+    const request = buildBookingRequest();
+    if (!request) return;
     const validationIssue = getBookingValidationIssue(request, {
       requiresAddress: true,
       requiresCity: false,
@@ -283,13 +331,33 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
       requiresOperatingSystem: requiresOs,
     });
     if (validationIssue) {
-      console.warn('booking_validation_failed', validationIssue, request);
       toast.error(t('error_INVALID_INPUT'));
+      return;
+    }
+    if (confirmChannel === 'email' && !email.trim()) {
+      toast.error(t('error_EMAIL_REQUIRED'));
       return;
     }
     setSubmitting(true);
     try {
-      const created = await createBooking(request);
+      const pending = await requestBookingConfirmation(request, confirmChannel);
+      setConfirmationId(pending.confirmationId);
+      setConfirmationTarget(pending.maskedTarget);
+      setCodeSent(true);
+      toast.success(t('verificationCodeSent', { target: pending.maskedTarget }));
+    } catch (error) {
+      const code = error instanceof BookingApiError ? error.code : 'INTERNAL_ERROR';
+      toast.error(t(errorI18nKey(code)));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const submitConfirmedBooking = async () => {
+    if (!confirmationId || !/^\d{6}$/.test(verificationCode.trim())) return;
+    setSubmitting(true);
+    try {
+      const created = await confirmBooking(confirmationId, verificationCode.trim());
       if (!created?.bookingNumber) throw new BookingApiError('INTERNAL_ERROR');
       setResult(created);
       if (created.smsSent === false && created.smsSkipped === false) toast(t('smsError'), { icon: '!' });
@@ -317,7 +385,7 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
 
   if (result) {
     return (
-      <Shell onOpenAdmin={onOpenAdmin}>
+      <Shell onOpenAdmin={onOpenAdmin} customer={customer} onOpenAuth={() => setAuthOpen(true)} onOpenBookings={() => setBookingsOpen(true)}>
         <Card className="mx-auto max-w-xl p-6">
           <Badge tone="success">{t('bookingConfirmed')}</Badge>
           <h1 className="mt-3 text-2xl font-semibold">{t('bookingSuccess')}</h1>
@@ -333,7 +401,7 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
   }
 
   return (
-    <Shell onOpenAdmin={onOpenAdmin} subtitle={t('subtitle')}>
+    <Shell onOpenAdmin={onOpenAdmin} subtitle={t('subtitle')} customer={customer} onOpenAuth={() => setAuthOpen(true)} onOpenBookings={() => setBookingsOpen(true)}>
       {loading ? <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{Array.from({ length: 8 }).map((_, index) => <Skeleton key={index} className="h-20" />)}</div> : null}
       {loadError ? (
         <Alert tone="danger">
@@ -345,7 +413,7 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
       {!loading && !loadError ? (
         <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[minmax(0,1fr)_min(280px,22vw)] lg:items-stretch">
           <Card className="flex h-full min-h-0 flex-col p-3">
-            <ol className="mb-2 flex shrink-0 gap-1.5 overflow-x-auto text-[11px] font-semibold text-muted">
+            <ol className="mb-2 flex shrink-0 gap-1.5 overflow-x-auto px-0.5 py-1 text-[11px] font-semibold text-muted">
               {steps.map((name, index) => (
                 <li key={name} className={`whitespace-nowrap rounded-full px-2.5 py-0.5 ${index === step ? 'bg-primary text-white' : 'bg-canvas'}`}>
                   {index + 1}. {t(`step_${name}`)}
@@ -353,7 +421,15 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
               ))}
             </ol>
 
-            <div className={`min-h-0 flex-1 overscroll-contain ${current === 'services' ? 'overflow-y-auto lg:flex lg:flex-col lg:overflow-hidden' : 'overflow-y-auto'}`}>
+            <div
+              className={
+                current === 'services'
+                  ? 'min-h-0 flex-1 overscroll-contain overflow-y-auto py-1 lg:flex lg:flex-col lg:overflow-hidden'
+                  : current === 'device'
+                    ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain py-1 [overflow-clip-margin:4px]'
+                    : 'min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain py-1 [overflow-clip-margin:4px]'
+              }
+            >
             {current === 'services' ? (
               <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
                 <section
@@ -443,24 +519,36 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
             ) : null}
 
             {current === 'device' ? (
-              <div className="grid gap-2 sm:grid-cols-2">
-                <Field label={t('deviceType')} required={requiresDevice}>
-                  <Select required={requiresDevice} value={deviceType} onChange={(event) => setDeviceType(event.target.value as DeviceType | '')}>
-                    <option value="">{t('selectPlaceholder')}</option>
-                    {DEVICE_TYPES.map((item) => <option key={item} value={item}>{t(`device_${item}`)}</option>)}
-                  </Select>
-                </Field>
-                <Field label={t('operatingSystem')} required={requiresOs}>
-                  <Select required={requiresOs} value={operatingSystem} onChange={(event) => setOperatingSystem(event.target.value)}>
-                    <option value="">{t('selectPlaceholder')}</option>
-                    {OPERATING_SYSTEMS.map((item) => <option key={item} value={item}>{t(`os_${item}`)}</option>)}
-                  </Select>
-                </Field>
-                <Field label={t('deviceBrand')}><Input value={deviceBrand} maxLength={80} onChange={(event) => setDeviceBrand(event.target.value)} /></Field>
-                <Field label={t('deviceModel')}><Input value={deviceModel} maxLength={80} onChange={(event) => setDeviceModel(event.target.value)} /></Field>
-                <div className="sm:col-span-2">
-                  <Field label={t('problemDescription')}><Textarea rows={2} className="min-h-[4.5rem]" value={problem} maxLength={2000} onChange={(event) => setProblem(event.target.value)} /></Field>
+              <div className="flex min-h-0 flex-1 flex-col gap-3">
+                <div className="grid shrink-0 gap-2 sm:grid-cols-2">
+                  <Field label={t('deviceType')} required={requiresDevice}>
+                    <Select required={requiresDevice} value={deviceType} onChange={(event) => setDeviceType(event.target.value as DeviceType | '')}>
+                      <option value="">{t('selectPlaceholder')}</option>
+                      {DEVICE_TYPES.map((item) => <option key={item} value={item}>{t(`device_${item}`)}</option>)}
+                    </Select>
+                  </Field>
+                  <Field label={t('operatingSystem')} required={requiresOs}>
+                    <Select required={requiresOs} value={operatingSystem} onChange={(event) => setOperatingSystem(event.target.value)}>
+                      <option value="">{t('selectPlaceholder')}</option>
+                      {OPERATING_SYSTEMS.map((item) => <option key={item} value={item}>{t(`os_${item}`)}</option>)}
+                    </Select>
+                  </Field>
+                  <Field label={t('deviceBrand')}><Input value={deviceBrand} maxLength={80} onChange={(event) => setDeviceBrand(event.target.value)} /></Field>
+                  <Field label={t('deviceModel')}><Input value={deviceModel} maxLength={80} onChange={(event) => setDeviceModel(event.target.value)} /></Field>
                 </div>
+                <Field
+                  label={t('problemDescription')}
+                  className="flex min-h-0 flex-1 flex-col"
+                  controlClassName="flex min-h-0 flex-1 flex-col"
+                >
+                  <Textarea
+                    rows={5}
+                    className="min-h-36 flex-1 resize-y lg:min-h-44"
+                    value={problem}
+                    maxLength={2000}
+                    onChange={(event) => setProblem(event.target.value)}
+                  />
+                </Field>
               </div>
             ) : null}
 
@@ -473,7 +561,7 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
                 <Field label={t('city')}><Input value={city} maxLength={80} onChange={(event) => setCity(event.target.value)} /></Field>
                 <Field label={t('address')} required><Input required value={address} maxLength={200} onChange={(event) => setAddress(event.target.value)} /></Field>
                 <div className="sm:col-span-2">
-                  <Field label={t('comments')}><Textarea rows={2} className="min-h-[4.5rem]" value={comments} maxLength={1000} onChange={(event) => setComments(event.target.value)} /></Field>
+                  <Field label={t('comments')}><Textarea rows={4} value={comments} maxLength={1000} onChange={(event) => setComments(event.target.value)} /></Field>
                 </div>
               </div>
             ) : null}
@@ -522,14 +610,37 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
                 {selected.map((service) => <p key={service.id}>{localized(service.name, locale)}</p>)}
                 <p>{mode ? t(`mode_${mode}`) : ''}</p>
                 <p>{date ? `${formatISODateToDisplay(date)} ${time}` : ''}</p>
+                <p className="pt-2 text-xs text-muted">{t('bookingConfirmHint')}</p>
+              </div>
+            ) : null}
+
+            {current === 'verify' ? (
+              <div className="space-y-3">
+                <Field label={t('customerVerifyChannel')}>
+                  <Select value={confirmChannel} onChange={(event) => { setConfirmChannel(event.target.value as 'email' | 'sms'); setCodeSent(false); setConfirmationId(''); }}>
+                    <option value="sms">{t('customerVerifyBySms')}</option>
+                    <option value="email" disabled={!email.trim()}>{t('customerVerifyByEmail')}</option>
+                  </Select>
+                </Field>
+                <Button variant="ghost" disabled={submitting} onClick={() => void sendConfirmationCode()}>
+                  {submitting ? t('submitting') : t('customerSendVerification')}
+                </Button>
+                {codeSent ? (
+                  <>
+                    <p className="text-sm text-muted">{t('verificationCodeSent', { target: confirmationTarget })}</p>
+                    <Field label={t('verificationCode')}>
+                      <Input inputMode="numeric" maxLength={6} value={verificationCode} onChange={(event) => setVerificationCode(event.target.value)} />
+                    </Field>
+                  </>
+                ) : null}
               </div>
             ) : null}
             </div>
 
             <div className="mt-2 hidden shrink-0 items-center justify-between gap-2 border-t border-line pt-2 sm:flex">
               <Button variant="ghost" className="py-2" disabled={step === 0} onClick={() => setStep((value) => Math.max(0, value - 1))}>{t('back')}</Button>
-              {current === 'confirm'
-                ? <Button className="py-2" onClick={() => void submit()} disabled={submitting}>{submitting ? t('submitting') : t('submit')}</Button>
+              {current === 'verify'
+                ? <Button className="py-2" onClick={() => void submitConfirmedBooking()} disabled={submitting || !canContinue()}>{submitting ? t('submitting') : t('submit')}</Button>
                 : <Button className="py-2" disabled={!canContinue()} onClick={() => setStep((value) => Math.min(steps.length - 1, value + 1))}>{t('next')}</Button>}
             </div>
           </Card>
@@ -543,11 +654,15 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface p-3 sm:hidden">
         <div className="flex gap-2">
           <Button variant="ghost" className="flex-1" disabled={step === 0} onClick={() => setStep((value) => Math.max(0, value - 1))}>{t('back')}</Button>
-          {current === 'confirm'
-            ? <Button className="flex-1" onClick={() => void submit()} disabled={submitting}>{t('submit')}</Button>
+          {current === 'verify'
+            ? <Button className="flex-1" onClick={() => void submitConfirmedBooking()} disabled={submitting || !canContinue()}>{submitting ? t('submitting') : t('submit')}</Button>
             : <Button className="flex-1" disabled={!canContinue()} onClick={() => setStep((value) => value + 1)}>{t('next')}</Button>}
         </div>
       </div>
+      <CustomerAuthModal open={authOpen} onClose={() => setAuthOpen(false)} onSuccess={() => void refreshCustomer()} />
+      {customer && bookingsOpen ? (
+        <CustomerBookingsPanel profile={customer} onClose={() => setBookingsOpen(false)} onLogout={() => setCustomer(null)} />
+      ) : null}
     </Shell>
   );
 }
@@ -623,7 +738,21 @@ function BankBlock({ instructions, locale }: { instructions?: BankInstructions |
   );
 }
 
-function Shell({ children, onOpenAdmin, subtitle }: { children: ReactNode; onOpenAdmin: () => void; subtitle?: string }) {
+function Shell({
+  children,
+  onOpenAdmin,
+  subtitle,
+  customer,
+  onOpenAuth,
+  onOpenBookings,
+}: {
+  children: ReactNode;
+  onOpenAdmin: () => void;
+  subtitle?: string;
+  customer?: CustomerProfile | null;
+  onOpenAuth?: () => void;
+  onOpenBookings?: () => void;
+}) {
   const { t } = useTranslation();
   return (
     <div className="flex min-h-dvh flex-col overflow-hidden bg-canvas pb-14 lg:pb-0">
@@ -638,6 +767,11 @@ function Shell({ children, onOpenAdmin, subtitle }: { children: ReactNode; onOpe
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {customer ? (
+              <button type="button" onClick={onOpenBookings} className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium hover:bg-canvas sm:text-sm">{t('customerMyBookings')}</button>
+            ) : (
+              <button type="button" onClick={onOpenAuth} className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium hover:bg-canvas sm:text-sm">{t('customerAccount')}</button>
+            )}
             <button type="button" onClick={onOpenAdmin} className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium hover:bg-canvas sm:text-sm">{t('admin')}</button>
             <LanguageSwitcher />
           </div>

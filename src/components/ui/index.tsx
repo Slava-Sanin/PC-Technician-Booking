@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 
-const controlClass = 'w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink shadow-sm transition placeholder:text-muted focus:border-primary disabled:cursor-not-allowed disabled:bg-canvas disabled:text-muted';
+const controlClass = 'form-control';
 
 export function Button({
   variant = 'primary',
@@ -33,7 +33,7 @@ export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
 }
 
 export function Select(props: SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select {...props} className={`${controlClass} ${props.className ?? ''}`} />;
+  return <select {...props} className={`${controlClass} form-control-select ${props.className ?? ''}`} />;
 }
 
 export function Field({
@@ -41,16 +41,20 @@ export function Field({
   children,
   hint,
   required,
+  className = '',
+  controlClassName = '',
 }: {
   label: string;
   children: ReactNode;
   hint?: string;
   required?: boolean;
+  className?: string;
+  controlClassName?: string;
 }) {
   return (
-    <label className="block text-sm font-medium text-ink">
+    <label className={`block text-sm font-medium text-ink ${className}`}>
       {label}{required ? ' *' : ''}
-      <div className="mt-1.5">{children}</div>
+      <div className={`mt-1.5 min-w-0 ${controlClassName}`}>{children}</div>
       {hint ? <span className="mt-1 block text-xs font-normal text-muted">{hint}</span> : null}
     </label>
   );

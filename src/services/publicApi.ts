@@ -2,6 +2,7 @@ import { supabase } from '../lib/supabase';
 import type {
   AvailabilityQuery,
   AvailabilityResponse,
+  BookingConfirmationRequestResponse,
   CreateBookingRequest,
   CreateBookingResponse,
   MonthAvailabilityResponse,
@@ -132,6 +133,51 @@ export function fetchMonthAvailability(month: string, query: AvailabilityQuery):
   });
 }
 
-export function createBooking(request: CreateBookingRequest): Promise<CreateBookingResponse> {
-  return invokePublicFunction<CreateBookingResponse>('create-booking', { ...request });
+async function bookingAuthHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function invokeBookingFunction<T>(body: Record<string, unknown>): Promise<T> {
+  const headers = await bookingAuthHeaders();
+  const { data, error } = await supabase.functions.invoke('create-booking', { body, headers });
+  if (error) {
+    const context = (error as { context?: { json?: () => Promise<unknown> } }).context;
+    if (context && typeof context.json === 'function') {
+      try {
+        const payload = await context.json();
+        const code = readErrorCode(payload);
+        if (code) throw new BookingApiError(normalizeErrorCode(code));
+      } catch (parseError) {
+        if (parseError instanceof BookingApiError) throw parseError;
+      }
+    }
+    const direct = readErrorCode(data);
+    if (direct) throw new BookingApiError(normalizeErrorCode(direct));
+    throw new BookingApiError('INTERNAL_ERROR');
+  }
+  return data as T;
+}
+
+export function requestBookingConfirmation(
+  request: CreateBookingRequest,
+  confirmChannel: 'email' | 'sms',
+): Promise<BookingConfirmationRequestResponse> {
+  return invokeBookingFunction<BookingConfirmationRequestResponse>({
+    phase: 'request',
+    confirmChannel,
+    ...request,
+  });
+}
+
+export function confirmBooking(
+  confirmationId: string,
+  code: string,
+): Promise<CreateBookingResponse> {
+  return invokeBookingFunction<CreateBookingResponse>({
+    phase: 'confirm',
+    confirmationId,
+    code,
+  });
 }

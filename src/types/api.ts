@@ -30,6 +30,13 @@ export interface BankInstructions {
   instructions: { ru: string | null; he: string | null; en: string | null };
 }
 
+export interface BookingConfirmationRequestResponse {
+  confirmationRequested: true;
+  confirmationId: string;
+  channel: 'email' | 'sms';
+  maskedTarget: string;
+}
+
 export interface CreateBookingResponse {
   bookingCreated: true;
   bookingNumber: string;
