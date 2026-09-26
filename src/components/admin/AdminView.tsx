@@ -9,6 +9,8 @@ import { AdminWorkspace } from './AdminWorkspace';
 import { useBookingSettings } from '../../hooks/useBookingSettings';
 import { useBookings } from '../../hooks/useBookings';
 import { fetchMyProfile, isActiveStaff } from '../../services/profileService';
+import { loginStaff } from '../../services/staffAuthService';
+import { BookingApiError, errorI18nKey } from '../../utils/errors';
 import type { StaffProfile } from '../../types/bookingSettings';
 import { Button } from '../ui';
 
@@ -16,7 +18,7 @@ interface AdminViewProps {
   onLogout: () => void;
 }
 
-type Access = 'loading' | 'anonymous' | 'staff' | 'denied';
+type Access = 'loading' | 'anonymous' | 'staff';
 
 export function AdminView({ onLogout }: AdminViewProps) {
   const { t } = useTranslation();
@@ -44,13 +46,18 @@ export function AdminView({ onLogout }: AdminViewProps) {
       try {
         const nextProfile = await fetchMyProfile();
         if (accessRequest.current !== requestId) return;
-        setProfile(nextProfile);
-        setAccess(isActiveStaff(nextProfile) ? 'staff' : 'denied');
+        if (isActiveStaff(nextProfile)) {
+          setProfile(nextProfile);
+          setAccess('staff');
+          return;
+        }
+        setProfile(null);
+        setAccess('anonymous');
       } catch {
         if (accessRequest.current !== requestId) return;
         toast.error(t('fetchError'));
         setProfile(null);
-        setAccess('denied');
+        setAccess('anonymous');
       }
     };
     void loadSession();
@@ -64,26 +71,30 @@ export function AdminView({ onLogout }: AdminViewProps) {
     event.preventDefault();
     setLoginLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) {
-        toast.error(error.message === 'Invalid login credentials' ? t('invalidCredentials') : t('loginError'));
-        return;
-      }
+      await loginStaff(email, password);
       const requestId = ++accessRequest.current;
       setAccess('loading');
       try {
         const nextProfile = await fetchMyProfile();
         if (accessRequest.current !== requestId) return;
+        if (!isActiveStaff(nextProfile)) {
+          await supabase.auth.signOut();
+          toast.error(t('invalidCredentials'));
+          setProfile(null);
+          setAccess('anonymous');
+          return;
+        }
         setProfile(nextProfile);
-        setAccess(isActiveStaff(nextProfile) ? 'staff' : 'denied');
+        setAccess('staff');
       } catch {
         if (accessRequest.current !== requestId) return;
         toast.error(t('fetchError'));
         setProfile(null);
-        setAccess('denied');
+        setAccess('anonymous');
       }
-    } catch {
-      toast.error(t('loginError'));
+    } catch (error) {
+      const code = error instanceof BookingApiError ? error.code : 'INTERNAL_ERROR';
+      toast.error(t(errorI18nKey(code)));
       setProfile(null);
       setAccess('anonymous');
     } finally {
@@ -131,15 +142,10 @@ export function AdminView({ onLogout }: AdminViewProps) {
     );
   }
 
-  if (!staff || !profile) {
+  if (!profile) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
-        <Toaster position="top-right" />
-        <div className="max-w-md space-y-4 rounded-2xl bg-surface p-6 text-center shadow-card">
-          <h2 className="text-2xl font-semibold">{t('insufficientPermissions')}</h2>
-          <Button variant="danger" onClick={() => void handleLogout()}>{t('logout')}</Button>
-          <Button variant="ghost" onClick={onLogout}>{t('backToBooking')}</Button>
-        </div>
+      <div className="flex h-screen items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-b-2 border-primary" />
       </div>
     );
   }
