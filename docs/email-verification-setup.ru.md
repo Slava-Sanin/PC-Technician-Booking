@@ -23,7 +23,10 @@ Resend — сторонний сервис рассылки. Ключ **нель
 
 1. Зарегистрируйтесь на [resend.com](https://resend.com) (есть бесплатный тариф).
 2. **API Keys** → Create API Key → скопируйте ключ `re_...`.
-3. **Domains** → добавьте домен и DNS-записи **или** для тестов используйте `onboarding@resend.dev` (ограничения по получателям).
+3. **Domains** → добавьте **свой** домен (где вы управляете DNS) и пропишите записи Resend.
+   - **Нельзя** использовать `*@slava-sanin.github.io` или другой `*.github.io` в `VERIFICATION_EMAIL_FROM` — GitHub Pages не даёт DNS для почты, Resend вернёт `domain is not verified`.
+   - `PUBLIC_SITE_URL` может быть GitHub Pages; это только ссылки в письмах, не адрес отправителя.
+   - Для тестов без своего домена: `onboarding@resend.dev` (письма только на email владельца аккаунта Resend).
 4. В терминале из корня проекта:
 
 ```powershell
