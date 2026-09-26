@@ -21,6 +21,7 @@ import {
   Wifi,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+import { BrandLogo } from '../BrandLogo';
 import { LanguageSwitcher } from '../LanguageSwitcher';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, Select, Skeleton, Textarea } from '../ui';
 import { useAvailability, useMonthAvailability } from '../../hooks/useAvailability';
@@ -621,10 +622,13 @@ function Shell({ children, onOpenAdmin, subtitle }: { children: ReactNode; onOpe
     <div className="flex min-h-dvh flex-col overflow-hidden bg-canvas pb-14 lg:pb-0">
       <header className="shrink-0 border-b border-line bg-surface">
         <div className="flex w-full items-center justify-between gap-3 px-3 py-2 sm:px-5 xl:px-8">
-          <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+            <BrandLogo />
+            <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase leading-none tracking-wide text-secondary">{t('brandKicker')}</p>
             <h1 className="truncate text-base font-semibold leading-tight text-ink sm:text-lg">{t('title')}</h1>
             {subtitle ? <p className="hidden truncate text-xs text-muted sm:block">{subtitle}</p> : null}
+            </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <button type="button" onClick={onOpenAdmin} className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium hover:bg-canvas sm:text-sm">{t('admin')}</button>

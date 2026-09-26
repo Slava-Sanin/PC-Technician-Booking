@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { ArrowLeft, LogIn } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
+import { BrandLogo } from '../BrandLogo';
 import { LanguageSwitcher } from '../LanguageSwitcher';
 import { AdminWorkspace } from './AdminWorkspace';
 import { useBookingSettings } from '../../hooks/useBookingSettings';
@@ -116,7 +117,10 @@ export function AdminView({ onLogout }: AdminViewProps) {
         <Toaster position="top-right" />
         <div className="fixed top-4 end-4"><LanguageSwitcher /></div>
         <form className="w-full max-w-md space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-card" onSubmit={(event) => void handleLogin(event)}>
-          <h2 className="text-center text-2xl font-semibold">{t('loginTitle')}</h2>
+          <div className="flex flex-col items-center gap-3">
+            <BrandLogo className="h-24 w-auto object-contain sm:h-28" />
+            <h2 className="text-center text-2xl font-semibold">{t('loginTitle')}</h2>
+          </div>
           <p className="text-center text-sm text-muted">{t('loginSubtitle')}</p>
           <input type="email" required autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={t('email')} className="w-full rounded-lg border border-line px-3 py-2" />
           <input type="password" required autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder={t('password')} className="w-full rounded-lg border border-line px-3 py-2" />
@@ -144,7 +148,10 @@ export function AdminView({ onLogout }: AdminViewProps) {
     <div className="min-h-screen bg-canvas">
       <Toaster position="top-right" />
       <header className="flex items-center justify-between gap-3 border-b border-line bg-surface px-4 py-4">
-        <h1 className="text-lg font-semibold">{t('adminTitle')}</h1>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <BrandLogo className="h-16 w-auto shrink-0 object-contain sm:h-20" />
+          <h1 className="truncate text-lg font-semibold">{t('adminTitle')}</h1>
+        </div>
         <div className="flex items-center gap-2">
           <LanguageSwitcher />
           <Button variant="ghost" onClick={() => void handleLogout()}>{t('logout')}</Button>
