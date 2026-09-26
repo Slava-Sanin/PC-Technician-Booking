@@ -24,6 +24,7 @@ export const API_ERROR_CODES = [
   'SMS_FAILED',
   'EMAIL_FAILED',
   'ALREADY_REGISTERED',
+  'STAFF_EMAIL_IN_USE',
   'INVALID_CREDENTIALS',
 ] as const;
 

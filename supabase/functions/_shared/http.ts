@@ -49,6 +49,7 @@ export function statusForCode(code: string): number {
     case 'EMAIL_FAILED':
       return 400;
     case 'ALREADY_REGISTERED':
+    case 'STAFF_EMAIL_IN_USE':
       return 409;
     case 'INVALID_CREDENTIALS':
       return 401;

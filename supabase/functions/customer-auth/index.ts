@@ -26,6 +26,16 @@ function channelField(value: unknown): 'email' | 'sms' | null {
   return value === 'email' || value === 'sms' ? value : null;
 }
 
+async function registrationEligibility(email: string | null, phone: string | null): Promise<Response | null> {
+  const result = await supabaseRpc('check_customer_registration_eligibility', {
+    p_email: email ?? '',
+    p_phone: phone ?? '',
+  });
+  if (!isRecord(result) || result.ok === true) return null;
+  const code = typeof result.code === 'string' ? result.code : 'INTERNAL_ERROR';
+  return json({ error: code }, statusForCode(code));
+}
+
 async function issueRegistrationChallenge(input: {
   email: string | null;
   phone: string | null;
@@ -38,6 +48,9 @@ async function issueRegistrationChallenge(input: {
   if (!target) {
     return json({ error: 'INVALID_INPUT' }, 400);
   }
+
+  const blocked = await registrationEligibility(input.email, input.phone);
+  if (blocked) return blocked;
 
   const code = randomDigits(6);
   const token = randomToken();
@@ -122,11 +135,18 @@ async function finalizeRegistration(challengeId: string, code?: string, token?: 
 
   const loginEmail = email ?? `phone.${(phone ?? '').replace(/\D/g, '')}@customers.local`;
   let userId: string;
+  const blocked = await registrationEligibility(email, phone);
+  if (blocked) return blocked;
+
   try {
     userId = await createAuthUser(loginEmail, password);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'INTERNAL_ERROR';
-    if (message === 'ALREADY_REGISTERED') return json({ error: 'ALREADY_REGISTERED' }, 409);
+    if (message === 'ALREADY_REGISTERED') {
+      const again = await registrationEligibility(email, phone);
+      if (again) return again;
+      return json({ error: 'ALREADY_REGISTERED' }, 409);
+    }
     return json({ error: 'INTERNAL_ERROR' }, 500);
   }
 
