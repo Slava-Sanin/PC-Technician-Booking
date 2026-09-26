@@ -26,14 +26,22 @@ function channelField(value: unknown): 'email' | 'sms' | null {
   return value === 'email' || value === 'sms' ? value : null;
 }
 
-async function registrationEligibility(email: string | null, phone: string | null): Promise<Response | null> {
+async function registrationEligibility(email: string | null, phone: string | null): Promise<{
+  blocked: Response | null;
+  linkStaffAuth: boolean;
+}> {
   const result = await supabaseRpc('check_customer_registration_eligibility', {
     p_email: email ?? '',
     p_phone: phone ?? '',
   });
-  if (!isRecord(result) || result.ok === true) return null;
-  const code = typeof result.code === 'string' ? result.code : 'INTERNAL_ERROR';
-  return json({ error: code }, statusForCode(code));
+  if (!isRecord(result)) {
+    return { blocked: json({ error: 'INTERNAL_ERROR' }, 500), linkStaffAuth: false };
+  }
+  if (result.ok !== true) {
+    const code = typeof result.code === 'string' ? result.code : 'INTERNAL_ERROR';
+    return { blocked: json({ error: code }, statusForCode(code)), linkStaffAuth: false };
+  }
+  return { blocked: null, linkStaffAuth: result.linkExistingStaffAuth === true };
 }
 
 async function issueRegistrationChallenge(input: {
@@ -49,8 +57,8 @@ async function issueRegistrationChallenge(input: {
     return json({ error: 'INVALID_INPUT' }, 400);
   }
 
-  const blocked = await registrationEligibility(input.email, input.phone);
-  if (blocked) return blocked;
+  const eligibility = await registrationEligibility(input.email, input.phone);
+  if (eligibility.blocked) return eligibility.blocked;
 
   const code = randomDigits(6);
   const token = randomToken();
@@ -88,6 +96,7 @@ async function issueRegistrationChallenge(input: {
       challengeId,
       channel: 'sms',
       maskedTarget: maskPhone(target),
+      linkStaffAuth: eligibility.linkStaffAuth,
     });
   }
 
@@ -104,6 +113,7 @@ async function issueRegistrationChallenge(input: {
     channel: 'email',
     maskedTarget: maskEmail(target),
     emailLinkSent: true,
+    linkStaffAuth: eligibility.linkStaffAuth,
   });
 }
 
@@ -133,21 +143,34 @@ async function finalizeRegistration(challengeId: string, code?: string, token?: 
     return json({ error: 'INVALID_INPUT' }, 400);
   }
 
-  const loginEmail = email ?? `phone.${(phone ?? '').replace(/\D/g, '')}@customers.local`;
+  let loginEmail = email ?? `phone.${(phone ?? '').replace(/\D/g, '')}@customers.local`;
   let userId: string;
-  const blocked = await registrationEligibility(email, phone);
-  if (blocked) return blocked;
+  const eligibility = await registrationEligibility(email, phone);
+  if (eligibility.blocked) return eligibility.blocked;
 
-  try {
-    userId = await createAuthUser(loginEmail, password);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'INTERNAL_ERROR';
-    if (message === 'ALREADY_REGISTERED') {
-      const again = await registrationEligibility(email, phone);
-      if (again) return again;
-      return json({ error: 'ALREADY_REGISTERED' }, 409);
+  if (eligibility.linkStaffAuth && email) {
+    const staffLookup = await supabaseRpc('lookup_staff_for_login', { p_email: email });
+    if (!isRecord(staffLookup) || staffLookup.ok !== true || typeof staffLookup.loginEmail !== 'string') {
+      return json({ error: 'INTERNAL_ERROR' }, 500);
     }
-    return json({ error: 'INTERNAL_ERROR' }, 500);
+    loginEmail = staffLookup.loginEmail;
+    userId = typeof staffLookup.userId === 'string' ? staffLookup.userId : '';
+    if (!userId) return json({ error: 'INTERNAL_ERROR' }, 500);
+    try {
+      await signInWithPassword(loginEmail, password);
+    } catch {
+      return json({ error: 'INVALID_CREDENTIALS' }, 401);
+    }
+  } else {
+    try {
+      userId = await createAuthUser(loginEmail, password);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'INTERNAL_ERROR';
+      if (message === 'ALREADY_REGISTERED') {
+        return json({ error: 'ALREADY_REGISTERED' }, 409);
+      }
+      return json({ error: 'INTERNAL_ERROR' }, 500);
+    }
   }
 
   const url = Deno.env.get('SUPABASE_URL');

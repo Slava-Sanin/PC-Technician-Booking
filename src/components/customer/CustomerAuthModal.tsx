@@ -33,6 +33,7 @@ export function CustomerAuthModal({
   const [challengeId, setChallengeId] = useState('');
   const [maskedTarget, setMaskedTarget] = useState('');
   const [code, setCode] = useState('');
+  const [linkStaffAuth, setLinkStaffAuth] = useState(false);
 
   if (!open) return null;
 
@@ -41,6 +42,7 @@ export function CustomerAuthModal({
     setChallengeId('');
     setCode('');
     setMaskedTarget('');
+    setLinkStaffAuth(false);
   };
 
   const handleError = (error: unknown) => {
@@ -78,8 +80,10 @@ export function CustomerAuthModal({
       });
       setChallengeId(result.challengeId);
       setMaskedTarget(result.maskedTarget);
+      setLinkStaffAuth(Boolean(result.linkStaffAuth));
       setMode('verify');
       toast.success(t('verificationCodeSent', { target: result.maskedTarget }));
+      if (result.linkStaffAuth) toast(t('customerRegisterStaffLinkHint'), { icon: 'ℹ️' });
     } catch (error) {
       handleError(error);
     } finally {
@@ -135,6 +139,7 @@ export function CustomerAuthModal({
             <Field label={t('phone')}><Input value={phone} onChange={(event) => setPhone(event.target.value)} /></Field>
             <Field label={t('email')}><Input type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></Field>
             <Field label={t('password')}><Input required type="password" value={password} onChange={(event) => setPassword(event.target.value)} /></Field>
+            <p className="text-xs text-muted">{t('customerRegisterPasswordHint')}</p>
             <Field label={t('customerVerifyChannel')}>
               <select className="w-full rounded-lg border border-line px-3 py-2 text-sm" value={verifyChannel} onChange={(event) => setVerifyChannel(event.target.value as 'email' | 'sms')}>
                 <option value="sms">{t('customerVerifyBySms')}</option>
@@ -148,6 +153,7 @@ export function CustomerAuthModal({
 
         {mode === 'verify' ? (
           <form className="space-y-3" onSubmit={(event) => void handleRegisterVerify(event)}>
+            {linkStaffAuth ? <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-ink">{t('customerRegisterStaffLinkHint')}</p> : null}
             <p className="text-sm text-muted">{t('verificationCodeSent', { target: maskedTarget })}</p>
             <Field label={t('verificationCode')}>
               <Input required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} value={code} onChange={(event) => setCode(event.target.value)} />

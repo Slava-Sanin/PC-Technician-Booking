@@ -54,7 +54,7 @@ export async function startCustomerRegistration(input: {
   phone?: string;
   password: string;
   verifyChannel: 'email' | 'sms';
-}): Promise<{ challengeId: string; maskedTarget: string; channel: 'email' | 'sms' }> {
+}): Promise<{ challengeId: string; maskedTarget: string; channel: 'email' | 'sms'; linkStaffAuth?: boolean }> {
   return invokeCustomer('customer-auth', { action: 'registerStart', ...input });
 }
 
