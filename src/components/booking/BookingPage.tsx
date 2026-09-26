@@ -40,7 +40,7 @@ import {
   todayISOInTimeZone,
 } from '../../utils/dateTime';
 import { BookingApiError, errorI18nKey } from '../../utils/errors';
-import { bookingTotal, formatMoney, lineTotal, sumDuration } from '../../utils/pricing';
+import { bookingTotal, formatDurationMinutes, formatMoney, lineTotal, sumDuration } from '../../utils/pricing';
 import { getBookingValidationIssue } from '../../utils/validation';
 
 const ICONS: Record<string, typeof Circle> = {
@@ -358,13 +358,16 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
               <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
                 <section
                   aria-labelledby="booking-categories-heading"
-                  className="shrink-0 rounded-xl border border-line bg-surface p-3"
+                  className="shrink-0 overflow-hidden rounded-xl border border-line bg-surface"
                 >
-                  <h3 id="booking-categories-heading" className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                  <h3
+                    id="booking-categories-heading"
+                    className="border-b border-blue-100 bg-blue-50 px-3 py-2 text-sm font-semibold text-primary"
+                  >
                     {t('nav_categories')}
                   </h3>
                   <div
-                    className="grid gap-3"
+                    className="grid gap-3 p-3"
                     style={{ gridTemplateColumns: `repeat(${categoryColumns}, minmax(0, 1fr))` }}
                   >
                     {categories.map((category) => {
@@ -376,11 +379,13 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
                           onClick={() => setCategoryId(category.id)}
                           className={`rounded-2xl border p-4 text-start transition ${active ? 'border-primary bg-blue-50' : 'border-line hover:border-primary/40'}`}
                         >
-                          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-primary">
-                            <CatalogIcon name={category.icon} />
+                          <span className="flex items-center gap-2.5">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-primary">
+                              <CatalogIcon name={category.icon} />
+                            </span>
+                            <span className="min-w-0 font-semibold leading-snug text-ink">{localized(category.name, locale)}</span>
                           </span>
-                          <span className="mt-3 block font-semibold text-ink">{localized(category.name, locale)}</span>
-                          <span className="mt-1 block text-sm text-muted">{localized(category.description, locale)}</span>
+                          <span className="mt-2 block text-sm text-muted">{localized(category.description, locale)}</span>
                         </button>
                       );
                     })}
@@ -411,7 +416,7 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
                       >
                         <span className="min-w-0">
                           <span className="block text-sm font-semibold leading-tight">{localized(service.name, locale)}</span>
-                          <span className="text-xs text-muted">{service.durationMinutes} {t('minutesShort')}</span>
+                          <span className="text-xs text-muted">{formatDurationMinutes(service.durationMinutes, { minutesShort: t('minutesShort'), hoursShort: t('hoursShort') })}</span>
                         </span>
                         <span className="shrink-0 text-xs font-semibold text-ink"><PriceLabel service={service} locale={locale} /></span>
                       </button>
@@ -484,7 +489,7 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
                   onSelect={(iso) => { setDate(iso); setTime(''); }}
                 />
                 <div>
-                  <p className="mb-2 flex items-center gap-2 text-sm font-semibold"><CalendarDays className="h-4 w-4" aria-hidden="true" />{t('durationMinutes')}: {availability.durationMinutes || duration}</p>
+                  <p className="mb-2 flex items-center gap-2 text-sm font-semibold"><CalendarDays className="h-4 w-4" aria-hidden="true" />{t('duration')}: {formatDurationMinutes(availability.durationMinutes || duration, { minutesShort: t('minutesShort'), hoursShort: t('hoursShort') })}</p>
                   {availability.loading ? <Skeleton className="h-24" /> : null}
                   {!availability.loading && availability.slots.length === 0 ? <EmptyState title={t('noAvailableSlots')} /> : null}
                   <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-5">
@@ -529,7 +534,7 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
             </div>
           </Card>
 
-          <Card className="hidden h-full min-h-0 flex-col overflow-y-auto p-3 lg:flex">
+          <Card className="hidden h-full min-h-0 flex-col overflow-hidden p-0 lg:flex">
             <Summary selected={selected} locale={locale} mode={mode} duration={duration} date={date} time={time} total={total} currency={currency} paymentCode={paymentCode} />
           </Card>
         </div>
@@ -570,20 +575,22 @@ function Summary({
 }) {
   const { t } = useTranslation();
   return (
-    <div>
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-muted">{t('summary')}</h2>
-      <ul className="mt-2 space-y-1 text-xs">
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <h2 className="shrink-0 border-b border-blue-100 bg-blue-50 px-3 py-2 text-sm font-semibold text-primary">{t('summary')}</h2>
+      <div className="p-3">
+      <ul className="space-y-1 text-xs">
         {selected.length === 0 ? <li className="text-muted">{t('noneSelected')}</li> : null}
         {selected.map((service) => <li key={service.id} className="flex justify-between gap-2"><span className="min-w-0 truncate">{localized(service.name, locale)}</span><span className="shrink-0"><PriceLabel service={service} locale={locale} /></span></li>)}
       </ul>
       <dl className="mt-2 space-y-1 border-t border-line pt-2 text-xs">
         <Row label={t('serviceMode')} value={mode ? t(`mode_${mode}`) : '—'} />
-        <Row label={t('duration')} value={`${duration} ${t('minutesShort')}`} />
+        <Row label={t('duration')} value={formatDurationMinutes(duration, { minutesShort: t('minutesShort'), hoursShort: t('hoursShort') })} />
         <Row label={t('appointmentDate')} value={date ? formatISODateToDisplay(date) : '—'} />
         <Row label={t('appointmentTime')} value={time || '—'} />
         <Row highlight label={t('total')} value={total == null ? t('priceQuote') : formatMoney(total, currency, locale)} />
         <Row label={t('payment')} value={paymentCode || '—'} />
       </dl>
+      </div>
     </div>
   );
 }

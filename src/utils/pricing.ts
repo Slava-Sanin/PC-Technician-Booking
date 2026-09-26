@@ -17,6 +17,23 @@ export function sumDuration(items: Array<{ durationMinutes: number }>): number {
   return items.reduce((total, item) => total + item.durationMinutes, 0);
 }
 
+export interface DurationUnitLabels {
+  minutesShort: string;
+  hoursShort: string;
+}
+
+export function formatDurationMinutes(totalMinutes: number, units: DurationUnitLabels): string {
+  if (totalMinutes <= 59) {
+    return `${totalMinutes} ${units.minutesShort}`;
+  }
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (minutes === 0) {
+    return `${hours} ${units.hoursShort}`;
+  }
+  return `${hours} ${units.hoursShort} ${minutes} ${units.minutesShort}`;
+}
+
 export function bookingTotal(lines: Array<{ total: number | null }>): number | null {
   if (lines.length === 0 || lines.every((line) => line.total == null)) return null;
   const sum = lines.reduce((total, line) => total + (line.total ?? 0), 0);

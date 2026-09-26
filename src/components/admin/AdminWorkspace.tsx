@@ -35,7 +35,7 @@ import { BOOKING_STATUSES, type Booking, type BookingStatus } from '../../types/
 import { PAYMENT_POLICIES, PRICE_TYPES, localized, type PaymentPolicy, type PriceType } from '../../types/catalog';
 import { isPublicCategory, isPublicService } from '../../utils/catalogRules';
 import { BUSINESS_TIME_ZONE, formatAppointmentInZone, formatISODateToDisplay, getZonedParts, parseDisplayDate, todayISOInTimeZone } from '../../utils/dateTime';
-import { formatMoney } from '../../utils/pricing';
+import { formatDurationMinutes, formatMoney } from '../../utils/pricing';
 import { BookingApiError, errorI18nKey } from '../../utils/errors';
 
 type Panel = 'dashboard' | 'bookings' | 'calendar' | 'categories' | 'services' | 'technicians' | 'schedule' | 'payments' | 'settings';
@@ -230,7 +230,7 @@ function BookingEditor({
       <p>{booking.problem_description}</p>
       <ul className="space-y-1">
         {(booking.booking_services ?? []).map((line) => (
-          <li key={line.id}>{localized(line.service_name_snapshot, i18n.language)} · {line.duration_minutes} {t('minutesShort')}</li>
+          <li key={line.id}>{localized(line.service_name_snapshot, i18n.language)} · {formatDurationMinutes(line.duration_minutes, { minutesShort: t('minutesShort'), hoursShort: t('hoursShort') })}</li>
         ))}
       </ul>
       <Field label={t('status')}>
