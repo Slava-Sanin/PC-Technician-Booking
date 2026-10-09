@@ -9,6 +9,7 @@ import { Badge, EmptyState, Input, Select } from '../ui';
 import type { Booking } from '../../types/booking';
 import { BOOKING_STATUSES, type BookingStatus } from '../../types/booking';
 import { BUSINESS_TIME_ZONE, formatAppointmentInZone, getZonedParts, todayISOInTimeZone } from '../../utils/dateTime';
+import { formatBookingLocation } from '../../utils/formatBookingLocation';
 import { bookingGeocodeQuery, geocodeBookingsSequential, type GeoPoint } from '../../utils/geocode';
 import { isCivilDateInRange, resolveMapPeriodRange, type MapPeriodPreset } from '../../utils/mapPeriod';
 import 'leaflet/dist/leaflet.css';
@@ -196,7 +197,7 @@ export function BookingsMapPanel({ bookings }: { bookings: Booking[] }) {
                   </p>
                   <p>{booking.phone}</p>
                   <p>
-                    {[booking.city, booking.address].filter(Boolean).join(', ')}
+                    {formatBookingLocation(booking.city, booking.address)}
                   </p>
                   <p>{formatAppointmentInZone(booking.appointment_start || booking.appointment_date, BUSINESS_TIME_ZONE)}</p>
                   <Badge tone="info">{t(`status_${booking.status}`)}</Badge>

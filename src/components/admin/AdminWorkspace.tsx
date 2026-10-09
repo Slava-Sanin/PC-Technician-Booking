@@ -36,6 +36,7 @@ import { BOOKING_STATUSES, type Booking, type BookingStatus } from '../../types/
 import { PAYMENT_POLICIES, PRICE_TYPES, localized, type PaymentPolicy, type PriceType } from '../../types/catalog';
 import { isPublicCategory, isPublicService } from '../../utils/catalogRules';
 import { BUSINESS_TIME_ZONE, formatAppointmentInZone, formatISODateToDisplay, getZonedParts, parseDisplayDate, todayISOInTimeZone } from '../../utils/dateTime';
+import { formatBookingLocation } from '../../utils/formatBookingLocation';
 import { formatDurationMinutes, formatMoney } from '../../utils/pricing';
 import { BookingApiError, errorI18nKey } from '../../utils/errors';
 const BookingsMapPanel = lazy(() => import('./BookingsMapPanel').then((module) => ({ default: module.BookingsMapPanel })));
@@ -232,7 +233,7 @@ function BookingEditor({
     <div className="space-y-4 text-sm">
       <p>{booking.first_name} {booking.last_name}</p>
       <p>{booking.phone} {booking.email}</p>
-      <p>{booking.city} {booking.address}</p>
+      <p dir="auto">{formatBookingLocation(booking.city, booking.address)}</p>
       <p>{t(`mode_${booking.service_mode ?? 'onsite'}`)}</p>
       <p>{booking.device_type} · {booking.operating_system}</p>
       <p>{booking.problem_description}</p>

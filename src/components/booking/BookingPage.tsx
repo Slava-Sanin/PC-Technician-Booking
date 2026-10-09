@@ -23,7 +23,7 @@ import {
 import { toast } from 'react-hot-toast';
 import { BrandLogo } from '../BrandLogo';
 import { LanguageSwitcher } from '../LanguageSwitcher';
-import { Alert, Badge, Button, Card, EmptyState, Field, Input, Select, Skeleton, Textarea } from '../ui';
+import { Alert, Badge, Button, Card, EmptyState, Field, Input, ModalFooter, Select, Skeleton, Textarea } from '../ui';
 import { CustomerAuthModal } from '../customer/CustomerAuthModal';
 import { CustomerBookingsPanel } from '../customer/CustomerBookingsPanel';
 import { useAvailability, useMonthAvailability } from '../../hooks/useAvailability';
@@ -650,12 +650,12 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
             ) : null}
             </div>
 
-            <div className="mt-2 hidden shrink-0 items-center justify-between gap-2 border-t border-line pt-2 sm:flex">
+            <ModalFooter className="mt-2 hidden shrink-0 border-t border-line pt-2 sm:flex">
               <Button variant="ghost" className="py-2" disabled={step === 0} onClick={() => setStep((value) => Math.max(0, value - 1))}>{t('back')}</Button>
               {current === 'verify'
                 ? <Button className="py-2" onClick={() => void submitConfirmedBooking()} disabled={submitting || !canContinue()}>{submitting ? t('submitting') : t('submit')}</Button>
                 : <Button className="py-2" disabled={!canContinue()} onClick={() => setStep((value) => Math.min(steps.length - 1, value + 1))}>{t('next')}</Button>}
-            </div>
+            </ModalFooter>
           </Card>
 
           <Card className="hidden h-full min-h-0 flex-col overflow-hidden p-0 lg:flex">
@@ -665,12 +665,12 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
       ) : null}
 
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-surface p-3 sm:hidden">
-        <div className="flex gap-2">
-          <Button variant="ghost" className="flex-1" disabled={step === 0} onClick={() => setStep((value) => Math.max(0, value - 1))}>{t('back')}</Button>
+        <ModalFooter className="mt-0">
+          <Button variant="ghost" disabled={step === 0} onClick={() => setStep((value) => Math.max(0, value - 1))}>{t('back')}</Button>
           {current === 'verify'
-            ? <Button className="flex-1" onClick={() => void submitConfirmedBooking()} disabled={submitting || !canContinue()}>{submitting ? t('submitting') : t('submit')}</Button>
-            : <Button className="flex-1" disabled={!canContinue()} onClick={() => setStep((value) => value + 1)}>{t('next')}</Button>}
-        </div>
+            ? <Button onClick={() => void submitConfirmedBooking()} disabled={submitting || !canContinue()}>{submitting ? t('submitting') : t('submit')}</Button>
+            : <Button disabled={!canContinue()} onClick={() => setStep((value) => value + 1)}>{t('next')}</Button>}
+        </ModalFooter>
       </div>
       <CustomerAuthModal open={authOpen} onClose={() => setAuthOpen(false)} onSuccess={() => void refreshCustomer()} />
       {customer && bookingsOpen ? (
@@ -779,13 +779,15 @@ function Shell({
             {subtitle ? <p className="hidden truncate text-xs text-muted sm:block">{subtitle}</p> : null}
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {customer ? (
-              <button type="button" onClick={onOpenBookings} className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium hover:bg-canvas sm:text-sm">{t('customerMyBookings')}</button>
-            ) : (
-              <button type="button" onClick={onOpenAuth} className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium hover:bg-canvas sm:text-sm">{t('customerAccount')}</button>
-            )}
-            <button type="button" onClick={onOpenAdmin} className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium hover:bg-canvas sm:text-sm">{t('admin')}</button>
+          <div className="flex shrink-0 items-center gap-4 sm:gap-6">
+            <div className="flex items-center gap-2">
+              {customer ? (
+                <button type="button" onClick={onOpenBookings} className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium hover:bg-canvas sm:text-sm">{t('customerMyBookings')}</button>
+              ) : (
+                <button type="button" onClick={onOpenAuth} className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium hover:bg-canvas sm:text-sm">{t('customerAccount')}</button>
+              )}
+              <button type="button" onClick={onOpenAdmin} className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium hover:bg-canvas sm:text-sm">{t('admin')}</button>
+            </div>
             <LanguageSwitcher />
           </div>
         </div>

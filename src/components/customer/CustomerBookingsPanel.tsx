@@ -10,6 +10,7 @@ import {
 } from '../../services/customerService';
 import type { Booking } from '../../types/booking';
 import { formatISODateToDisplay } from '../../utils/dateTime';
+import { formatBookingLocation } from '../../utils/formatBookingLocation';
 import { BookingApiError, errorI18nKey } from '../../utils/errors';
 import { useConfirm } from '../ui/ConfirmProvider';
 import { Button, Card, Field, Input, Textarea } from '../ui';
@@ -106,7 +107,7 @@ export function CustomerBookingsPanel({
             <p className="text-sm text-muted">{profile.firstName} {profile.lastName}</p>
           </div>
           <div className="flex gap-2">
-            <Button variant="ghost" onClick={() => void handleLogout()}>{t('logout')}</Button>
+            <Button variant="secondary" onClick={() => void handleLogout()}>{t('logout')}</Button>
             <Button variant="ghost" onClick={onClose}>{t('close')}</Button>
           </div>
         </div>
@@ -123,8 +124,8 @@ export function CustomerBookingsPanel({
                   </div>
                   {canModify(booking.status) ? (
                     <div className="flex gap-2">
-                      <Button variant="ghost" onClick={() => startEdit(booking)}>{t('edit')}</Button>
-                      <Button variant="ghost" onClick={() => void cancelBooking(booking.id)}>{t('customerCancelBooking')}</Button>
+                      <Button variant="primary" onClick={() => startEdit(booking)}>{t('edit')}</Button>
+                      <Button variant="danger" onClick={() => void cancelBooking(booking.id)}>{t('customerCancelBooking')}</Button>
                     </div>
                   ) : null}
                 </div>
@@ -134,13 +135,13 @@ export function CustomerBookingsPanel({
                     <Field label={t('city')}><Input value={draft.city} maxLength={80} onChange={(event) => setDraft((value) => ({ ...value, city: event.target.value }))} /></Field>
                     <Field label={t('address')}><Input value={draft.address} maxLength={200} onChange={(event) => setDraft((value) => ({ ...value, address: event.target.value }))} /></Field>
                     <Field label={t('comments')}><Textarea rows={3} value={draft.comments} onChange={(event) => setDraft((value) => ({ ...value, comments: event.target.value }))} /></Field>
-                    <div className="flex gap-2">
-                      <Button onClick={() => void saveEdit(booking.id)}>{t('save')}</Button>
+                    <div className="flex flex-wrap justify-center gap-2">
+                      <Button variant="primary" onClick={() => void saveEdit(booking.id)}>{t('save')}</Button>
                       <Button variant="ghost" onClick={() => setEditingId(null)}>{t('cancel')}</Button>
                     </div>
                   </div>
                 ) : (
-                  <p className="mt-2 text-sm">{[booking.city, booking.address].filter(Boolean).join(', ')}</p>
+                  <p className="mt-2 text-sm" dir="auto">{formatBookingLocation(booking.city, booking.address)}</p>
                 )}
               </li>
             ))}

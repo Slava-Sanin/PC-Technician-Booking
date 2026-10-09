@@ -1,4 +1,5 @@
 import type { Booking } from '../types/booking';
+import { formatBookingLocation } from './formatBookingLocation';
 
 export interface GeoPoint {
   lat: number;
@@ -30,10 +31,9 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 export function bookingGeocodeQuery(booking: Pick<Booking, 'address' | 'city'>): string | null {
-  const address = booking.address.trim();
-  if (!address) return null;
-  const city = booking.city?.trim();
-  return [address, city, 'Israel'].filter(Boolean).join(', ');
+  const formatted = formatBookingLocation(booking.city, booking.address);
+  if (!formatted) return null;
+  return `${formatted}, Israel`;
 }
 
 async function geocodeQuery(query: string, signal?: AbortSignal): Promise<GeoPoint | null> {
