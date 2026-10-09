@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { compareSortValues, SortableTableHead, TableHead, toggleSortState, type SortDirection } from './sortableTableHead';
 import { useTranslation } from 'react-i18next';
@@ -37,10 +37,11 @@ import { isPublicCategory, isPublicService } from '../../utils/catalogRules';
 import { BUSINESS_TIME_ZONE, formatAppointmentInZone, formatISODateToDisplay, getZonedParts, parseDisplayDate, todayISOInTimeZone } from '../../utils/dateTime';
 import { formatDurationMinutes, formatMoney } from '../../utils/pricing';
 import { BookingApiError, errorI18nKey } from '../../utils/errors';
+const BookingsMapPanel = lazy(() => import('./BookingsMapPanel').then((module) => ({ default: module.BookingsMapPanel })));
 
-type Panel = 'dashboard' | 'bookings' | 'calendar' | 'categories' | 'services' | 'technicians' | 'schedule' | 'payments' | 'settings';
+type Panel = 'dashboard' | 'bookings' | 'calendar' | 'map' | 'categories' | 'services' | 'technicians' | 'schedule' | 'payments' | 'settings';
 
-const NAV: Panel[] = ['dashboard', 'bookings', 'calendar', 'categories', 'services', 'technicians', 'schedule', 'payments', 'settings'];
+const NAV: Panel[] = ['dashboard', 'bookings', 'calendar', 'map', 'categories', 'services', 'technicians', 'schedule', 'payments', 'settings'];
 
 function civilDate(iso: string | null): string {
   if (!iso) return '';
@@ -86,6 +87,11 @@ export function AdminWorkspace({
         {panel === 'dashboard' ? <Dashboard bookings={bookingsState.bookings} /> : null}
         {panel === 'bookings' ? <BookingsPanel state={bookingsState} /> : null}
         {panel === 'calendar' ? <CalendarPanel bookings={bookingsState.bookings} /> : null}
+        {panel === 'map' ? (
+          <Suspense fallback={<p className="text-sm text-muted">{t('loading')}</p>}>
+            <BookingsMapPanel bookings={bookingsState.bookings} />
+          </Suspense>
+        ) : null}
         {panel === 'categories' ? <CategoriesPanel isAdmin={isAdmin} /> : null}
         {panel === 'services' ? <ServicesPanel isAdmin={isAdmin} /> : null}
         {panel === 'technicians' ? <StaffPanel isAdmin={isAdmin} /> : null}
