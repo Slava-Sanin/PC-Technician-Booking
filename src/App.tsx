@@ -3,6 +3,7 @@ import { Toaster, toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { AdminView } from './components/admin/AdminView';
 import { BookingPage } from './components/booking/BookingPage';
+import { ConfirmProvider } from './components/ui/ConfirmProvider';
 import { useDocumentDirection } from './hooks/useDocumentDirection';
 import { verifyCustomerRegistration } from './services/customerService';
 import { BookingApiError, errorI18nKey } from './utils/errors';
@@ -33,15 +34,17 @@ function App() {
       });
   }, [t]);
 
-  if (showAdmin) {
-    return <AdminView onLogout={() => setShowAdmin(false)} />;
-  }
-
   return (
-    <>
-      <Toaster position="top-center" />
-      <BookingPage onOpenAdmin={() => setShowAdmin(true)} />
-    </>
+    <ConfirmProvider>
+      {showAdmin ? (
+        <AdminView onLogout={() => setShowAdmin(false)} />
+      ) : (
+        <>
+          <Toaster position="top-center" />
+          <BookingPage onOpenAdmin={() => setShowAdmin(true)} />
+        </>
+      )}
+    </ConfirmProvider>
   );
 }
 

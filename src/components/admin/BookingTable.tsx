@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useConfirm } from '../ui/ConfirmProvider';
 import { Trash2 } from 'lucide-react';
 import { compareSortValues, SortableTableHead, TableHead, toggleSortState } from './sortableTableHead';
 import { BOOKING_STATUSES, type Booking, type BookingStatus, type EditableBookingField } from '../../types/booking';
@@ -48,11 +49,22 @@ function sortValue(booking: Booking, column: SortColumn): string | number {
 }
 
 export function BookingTable({ bookings, timeZone, onUpdateField, onUpdateStatus, onDelete }: BookingTableProps) {
+  const confirm = useConfirm();
   const { t } = useTranslation();
   const [sortColumn, setSortColumn] = useState<SortColumn>('appointment_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [drafts, setDrafts] = useState<Record<string, Partial<Record<EditableBookingField, string>>>>({});
   const [appointmentDrafts, setAppointmentDrafts] = useState<Record<string, string>>({});
+
+  const requestDelete = async (bookingId: string) => {
+    const ok = await confirm({
+      message: t('confirmDelete'),
+      confirmLabel: t('delete'),
+      variant: 'danger',
+    });
+    if (!ok) return;
+    await onDelete(bookingId);
+  };
 
   const sorted = [...bookings].sort((left, right) => {
     const leftValue = sortValue(left, sortColumn);
@@ -233,7 +245,7 @@ export function BookingTable({ bookings, timeZone, onUpdateField, onUpdateStatus
                 <td className="px-1 py-1">
                   <button
                     type="button"
-                    onClick={() => void onDelete(booking.id)}
+                    onClick={() => void requestDelete(booking.id)}
                     className="inline-flex items-center justify-center px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
                     title={t('delete')}
                   >

@@ -11,6 +11,7 @@ import {
 import type { Booking } from '../../types/booking';
 import { formatISODateToDisplay } from '../../utils/dateTime';
 import { BookingApiError, errorI18nKey } from '../../utils/errors';
+import { useConfirm } from '../ui/ConfirmProvider';
 import { Button, Card, Field, Input, Textarea } from '../ui';
 
 export function CustomerBookingsPanel({
@@ -23,10 +24,11 @@ export function CustomerBookingsPanel({
   onLogout: () => void;
 }) {
   const { t } = useTranslation();
+  const confirm = useConfirm();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [draft, setDraft] = useState({ address: '', comments: '', phone: '' });
+  const [draft, setDraft] = useState({ address: '', city: '', comments: '', phone: '' });
 
   const load = async () => {
     setLoading(true);
@@ -47,6 +49,7 @@ export function CustomerBookingsPanel({
     setEditingId(booking.id);
     setDraft({
       address: booking.address,
+      city: booking.city ?? '',
       comments: booking.comments ?? '',
       phone: booking.phone,
     });
@@ -56,6 +59,7 @@ export function CustomerBookingsPanel({
     try {
       const updated = await updateCustomerBooking(bookingId, {
         address: draft.address.trim(),
+        city: draft.city.trim(),
         comments: draft.comments.trim() || null,
         phone: draft.phone.trim(),
       });
@@ -69,7 +73,12 @@ export function CustomerBookingsPanel({
   };
 
   const cancelBooking = async (bookingId: string) => {
-    if (!window.confirm(t('customerCancelConfirm'))) return;
+    const ok = await confirm({
+      message: t('customerCancelConfirm'),
+      confirmLabel: t('customerCancelBooking'),
+      variant: 'danger',
+    });
+    if (!ok) return;
     try {
       const updated = await cancelCustomerBooking(bookingId);
       setBookings((current) => current.map((item) => (item.id === bookingId ? { ...item, ...updated } : item)));
@@ -122,7 +131,8 @@ export function CustomerBookingsPanel({
                 {editingId === booking.id ? (
                   <div className="mt-3 space-y-2 border-t border-line pt-3">
                     <Field label={t('phone')}><Input value={draft.phone} onChange={(event) => setDraft((value) => ({ ...value, phone: event.target.value }))} /></Field>
-                    <Field label={t('address')}><Input value={draft.address} onChange={(event) => setDraft((value) => ({ ...value, address: event.target.value }))} /></Field>
+                    <Field label={t('city')}><Input value={draft.city} maxLength={80} onChange={(event) => setDraft((value) => ({ ...value, city: event.target.value }))} /></Field>
+                    <Field label={t('address')}><Input value={draft.address} maxLength={200} onChange={(event) => setDraft((value) => ({ ...value, address: event.target.value }))} /></Field>
                     <Field label={t('comments')}><Textarea rows={3} value={draft.comments} onChange={(event) => setDraft((value) => ({ ...value, comments: event.target.value }))} /></Field>
                     <div className="flex gap-2">
                       <Button onClick={() => void saveEdit(booking.id)}>{t('save')}</Button>
@@ -130,7 +140,7 @@ export function CustomerBookingsPanel({
                     </div>
                   </div>
                 ) : (
-                  <p className="mt-2 text-sm">{booking.address}</p>
+                  <p className="mt-2 text-sm">{[booking.city, booking.address].filter(Boolean).join(', ')}</p>
                 )}
               </li>
             ))}

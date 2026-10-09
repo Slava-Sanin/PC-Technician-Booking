@@ -4,6 +4,7 @@ import { compareSortValues, SortableTableHead, TableHead, toggleSortState, type 
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, ModalFooter, Select, Switch, Textarea } from '../ui';
+import { useConfirm } from '../ui/ConfirmProvider';
 import { useBookings } from '../../hooks/useBookings';
 import { useBookingSettings } from '../../hooks/useBookingSettings';
 import {
@@ -226,6 +227,7 @@ function BookingEditor({
   onClose: () => void;
 }) {
   const { t, i18n } = useTranslation();
+  const confirm = useConfirm();
   return (
     <div className="space-y-4 text-sm">
       <p>{booking.first_name} {booking.last_name}</p>
@@ -246,7 +248,23 @@ function BookingEditor({
       </Field>
       {!booking.deleted_at ? (
         <ModalFooter>
-          <Button variant="danger" onClick={() => void onDelete(booking.id).then(onClose)}>{t('delete')}</Button>
+          <Button
+            variant="danger"
+            onClick={() => {
+              void (async () => {
+                const ok = await confirm({
+                  message: t('confirmDelete'),
+                  confirmLabel: t('delete'),
+                  variant: 'danger',
+                });
+                if (!ok) return;
+                await onDelete(booking.id);
+                onClose();
+              })();
+            }}
+          >
+            {t('delete')}
+          </Button>
         </ModalFooter>
       ) : null}
     </div>
