@@ -22,13 +22,42 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [ -z "$SUPABASE_URL" ]; then
+          if [ -z "${SUPABASE_URL:-}" ]; then
             echo "VITE_SUPABASE_URL is not configured"
             exit 1
           fi
 
-          if [ -z "$SUPABASE_ANON_KEY" ]; then
+          if [ -z "${SUPABASE_ANON_KEY:-}" ]; then
             echo "VITE_SUPABASE_ANON_KEY is not configured"
+            exit 1
+          fi
+
+          SUPABASE_URL="${SUPABASE_URL//$'\r'/}"
+          SUPABASE_URL="${SUPABASE_URL#"${SUPABASE_URL%%[![:space:]]*}"}"
+          SUPABASE_URL="${SUPABASE_URL%"${SUPABASE_URL##*[![:space:]]}"}"
+          SUPABASE_URL="${SUPABASE_URL%/}"
+
+          SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY//$'\r'/}"
+          SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY#"${SUPABASE_ANON_KEY%%[![:space:]]*}"}"
+          SUPABASE_ANON_KEY="${SUPABASE_ANON_KEY%"${SUPABASE_ANON_KEY##*[![:space:]]}"}"
+
+          if ! [[ "$SUPABASE_URL" =~ ^https://[a-z0-9]+\.supabase\.co$ ]]; then
+            echo "VITE_SUPABASE_URL must look like https://<project-ref>.supabase.co (check GitHub secret for typos)"
+            exit 1
+          fi
+
+          url_ref="${SUPABASE_URL#https://}"
+          url_ref="${url_ref%%.supabase.co}"
+
+          jwt_payload="$(printf '%s' "$SUPABASE_ANON_KEY" | cut -d. -f2 | tr '_-' '/')"
+          case $(( ${#jwt_payload} % 4 )) in
+            2) jwt_payload="${jwt_payload}==" ;;
+            3) jwt_payload="${jwt_payload}=" ;;
+          esac
+          key_ref="$(printf '%s' "$jwt_payload" | base64 -d 2>/dev/null | sed -n 's/.*"ref"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+
+          if [ -z "$key_ref" ] || [ "$url_ref" != "$key_ref" ]; then
+            echo "VITE_SUPABASE_URL project ref does not match VITE_SUPABASE_ANON_KEY (update both GitHub secrets from Supabase Dashboard → Settings → API)"
             exit 1
           fi
 
@@ -41,8 +70,10 @@ jobs:
             --header "apikey: ${SUPABASE_ANON_KEY}" \
             --header "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
             --header "Content-Type: application/json" \
-            --header "Prefer: return=representation" \
-            --data '{}')
+            --data '{}') || {
+            echo "keep_alive RPC request failed (HTTP 4xx/5xx). Common causes: wrong GitHub secrets, or migration not applied on this project."
+            exit 1
+          }
 
           echo "Supabase keep-alive request completed successfully."
 
