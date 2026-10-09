@@ -183,6 +183,31 @@ supabase db push
 
 Проект уже связан с Supabase. Пароль базы в CLI может не совпадать с сохранённым; применение через Management API с токеном CLI это обходит.
 
+## Supabase Free Plan Keep-Alive
+
+На Free-плане Supabase проект может приостанавливаться при длительном отсутствии **database activity**. Для регулярного «пульса» базы (не просто HTTP к домену проекта) используется цепочка:
+
+```text
+GitHub Actions (schedule)
+  → POST /rest/v1/rpc/keep_alive
+    → PostgREST
+      → public.keep_alive()  (SELECT now();)
+```
+
+Миграция `supabase/migrations/20261009193000_add_keep_alive_rpc.sql` создаёт `public.keep_alive()`: `SECURITY INVOKER`, без параметров, без чтения/записи бизнес-таблиц, `EXECUTE` только для ролей `anon` и `authenticated`. Service role и пароль Postgres **не** используются.
+
+Workflow: [`.github/workflows/supabase-keep-alive.yml`](.github/workflows/supabase-keep-alive.yml)
+
+| Параметр | Значение |
+|---|---|
+| Расписание | `17 */8 * * *` (≈3 раза в сутки) |
+| Ручной запуск | **Actions → Supabase Keep Alive → Run workflow** (`workflow_dispatch`) |
+| Secrets | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` (те же, что для сборки фронта на GitHub Pages) |
+
+Логи job показывают только успех/ошибку запроса, без ключей и заголовков Authorization.
+
+**Ограничения:** keep-alive создаёт лёгкую активность БД, но **не** заменает платный план Supabase и не даёт production SLA. На public-репозиториях GitHub может **отключать scheduled workflows** после ~60 дней без commit/merge в default branch — риск задокументирован; при необходимости запустите workflow вручную через `workflow_dispatch` или сделайте commit в репозиторий, чтобы расписание снова считалось активным.
+
 ## Admin setup
 
 Войдите через Supabase Auth. Учётная запись без строки в `profiles` видит «Недостаточно прав». Действующий администратор назначает техника или второго администратора в разделе «Техники». Реквизиты перевода заполняются в «Оплата → Банковские переводы».
