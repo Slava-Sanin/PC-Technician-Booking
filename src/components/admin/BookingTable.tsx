@@ -248,8 +248,9 @@ export function BookingTable({
                       ))}
                     </select>
                   </td>
-                  <td className="min-w-[12rem] px-2 py-2 align-top">
+                  <td className="w-[12rem] min-w-[12rem] max-w-[12rem] px-2 py-2 align-middle">
                     <AppointmentDateTimeField
+                      layout="popover"
                       value={formatAppointmentInZone(booking.appointment_start || booking.appointment_date, timeZone)}
                       onChange={(display) => void commitAppointment(booking, display)}
                       booking={booking}
