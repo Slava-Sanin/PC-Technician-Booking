@@ -76,13 +76,23 @@
     @apply text-center;
   }
 
-  .table-cols-center td:not(:first-child) > .flex {
-    @apply justify-center;
-  }
-
   .table-cols-center.table-data-start-2-6 td:nth-child(2),
   .table-cols-center.table-data-start-2-6 td:nth-child(6) {
     @apply text-start;
+  }
+
+  /* Stretch multiline editors to the full row height in admin booking tables */
+  .table-cols-center td.table-cell-fill {
+    height: 1px;
+    @apply p-0 align-top;
+  }
+
+  .table-cols-center td.table-cell-fill .table-cell-fill-inner {
+    @apply flex h-full min-h-[3.25rem] flex-col p-2;
+  }
+
+  .table-cols-center td.table-cell-fill .table-cell-textarea {
+    @apply box-border block min-h-0 w-full flex-1 resize-y text-start;
   }
 
   .admin-sector-heading {

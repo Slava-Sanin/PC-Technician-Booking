@@ -187,6 +187,8 @@ export function BookingTable({
 
   const headClass = 'px-2 py-2 text-xs uppercase tracking-wider whitespace-nowrap';
   const cellInputClass = 'form-control min-w-[7rem] py-1 text-sm';
+  const cellTextareaTdClass = 'table-cell-fill';
+  const cellTextareaClass = `table-cell-textarea min-w-[8rem] ${cellInputClass}`;
   const columnCount = 20;
 
   return (
@@ -364,15 +366,16 @@ export function BookingTable({
                       />
                     </div>
                   </td>
-                  <td className="max-w-[12rem] px-2 py-2 align-top">
-                    <textarea
-                      value={fieldValue(booking, 'problem_description')}
-                      onChange={(event) => setDraft(booking.id, 'problem_description', event.target.value)}
-                      onBlur={() => void saveText(booking, 'problem_description')}
-                      rows={2}
-                      dir="auto"
-                      className={`min-w-[8rem] ${cellInputClass}`}
-                    />
+                  <td className={`max-w-[12rem] ${cellTextareaTdClass}`}>
+                    <div className="table-cell-fill-inner">
+                      <textarea
+                        value={fieldValue(booking, 'problem_description')}
+                        onChange={(event) => setDraft(booking.id, 'problem_description', event.target.value)}
+                        onBlur={() => void saveText(booking, 'problem_description')}
+                        dir="auto"
+                        className={cellTextareaClass}
+                      />
+                    </div>
                   </td>
                   <td className="max-w-[14rem] px-2 py-2 text-xs text-ink">{serviceSummary(booking, locale) || '—'}</td>
                   <td className="px-2 py-2">
@@ -414,24 +417,26 @@ export function BookingTable({
                       ) : null}
                     </div>
                   </td>
-                  <td className="px-2 py-2">
-                    <textarea
-                      value={fieldValue(booking, 'comments')}
-                      onChange={(event) => setDraft(booking.id, 'comments', event.target.value)}
-                      onBlur={() => void saveText(booking, 'comments')}
-                      rows={2}
-                      className={`min-w-[8rem] ${cellInputClass}`}
-                    />
+                  <td className={cellTextareaTdClass}>
+                    <div className="table-cell-fill-inner">
+                      <textarea
+                        value={fieldValue(booking, 'comments')}
+                        onChange={(event) => setDraft(booking.id, 'comments', event.target.value)}
+                        onBlur={() => void saveText(booking, 'comments')}
+                        className={cellTextareaClass}
+                      />
+                    </div>
                   </td>
-                  <td className="px-2 py-2">
-                    <textarea
-                      value={fieldValue(booking, 'technician_notes')}
-                      onChange={(event) => setDraft(booking.id, 'technician_notes', event.target.value)}
-                      onBlur={() => void saveText(booking, 'technician_notes')}
-                      rows={2}
-                      placeholder={t('addNote')}
-                      className={`min-w-[8rem] ${cellInputClass}`}
-                    />
+                  <td className={cellTextareaTdClass}>
+                    <div className="table-cell-fill-inner">
+                      <textarea
+                        value={fieldValue(booking, 'technician_notes')}
+                        onChange={(event) => setDraft(booking.id, 'technician_notes', event.target.value)}
+                        onBlur={() => void saveText(booking, 'technician_notes')}
+                        placeholder={t('addNote')}
+                        className={cellTextareaClass}
+                      />
+                    </div>
                   </td>
                   <td className="px-2 py-2">
                     <button
