@@ -1,17 +1,35 @@
+@import './themes/themes.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  html {
+    font-family: theme('fontFamily.sans');
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    html.theme-animate,
+    html.theme-animate *,
+    html.theme-animate *::before,
+    html.theme-animate *::after {
+      transition:
+        background-color 150ms ease,
+        color 150ms ease,
+        border-color 150ms ease,
+        box-shadow 150ms ease;
+    }
+  }
+
   body {
-    background: #D9CFC0;
-    color: #292524;
+    @apply bg-canvas text-ink;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
 
   :focus-visible {
-    outline: 2px solid #735740;
+    outline: 2px solid var(--ac);
     outline-offset: 2px;
   }
 
@@ -19,6 +37,20 @@
   select:focus-visible,
   textarea:focus-visible {
     outline: none;
+  }
+}
+
+@layer utilities {
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
   }
 }
 
@@ -66,11 +98,11 @@
   }
 
   .header-action-sector-btn {
-    @apply rounded-md px-2 py-0.5 text-xs font-medium text-ink hover:bg-surface sm:px-2.5 sm:py-1 sm:text-sm;
+    @apply rounded-md px-2 py-0.5 text-xs font-medium text-inherit hover:bg-band sm:px-2.5 sm:py-1 sm:text-sm;
   }
 
   .header-action-sector-status {
-    @apply max-w-[9rem] truncate px-1 text-center text-[10px] font-semibold leading-tight text-ink sm:max-w-[11rem] sm:text-xs;
+    @apply max-w-[9rem] truncate px-1 text-center text-[10px] font-semibold leading-tight text-inherit sm:max-w-[11rem] sm:text-xs;
   }
 
   .header-action-sector-actions {
@@ -84,12 +116,12 @@
   .form-control:focus,
   .form-control:focus-visible {
     @apply border-primary outline-none ring-0;
-    box-shadow: inset 0 0 0 1px #735740;
+    box-shadow: inset 0 0 0 1px var(--ac);
   }
 
   .form-control-select {
     appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20' fill='none'%3E%3Cpath stroke='%2364748b' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20' fill='none'%3E%3Cpath stroke='%236B6259' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-size: 1.25rem 1.25rem;
     background-position: right 0.65rem center;

@@ -9,10 +9,10 @@ export function Button({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'ghost' | 'danger' }) {
   const styles = {
-    primary: 'bg-primary text-white hover:bg-primaryDark',
-    secondary: 'bg-secondary text-white hover:bg-secondaryDark',
+    primary: 'bg-primary text-onAccent shadow-sm ring-1 ring-inset ring-black/10 hover:bg-primaryDark',
+    secondary: 'bg-secondary text-ink shadow-sm hover:bg-secondaryDark',
     ghost: 'bg-surface text-ink border border-line hover:bg-canvas',
-    danger: 'bg-danger text-white hover:bg-red-700',
+    danger: 'bg-danger text-onAccent shadow-sm hover:bg-dangerDark',
   }[variant];
   return (
     <button
@@ -78,7 +78,7 @@ export function Switch({
       onClick={() => onChange(!checked)}
       className={`relative h-7 w-12 rounded-full transition ${checked ? 'bg-primary' : 'bg-line'}`}
     >
-      <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition ${checked ? 'end-0.5' : 'start-0.5'}`} />
+      <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-knob shadow transition ${checked ? 'end-0.5' : 'start-0.5'}`} />
     </button>
   );
 }
@@ -90,9 +90,9 @@ export function Card({ children, className = '' }: { children: ReactNode; classN
 export function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'success' | 'warning' | 'danger' | 'info' }) {
   const styles = {
     neutral: 'bg-highlight text-ink',
-    success: 'bg-green-50 text-success',
-    warning: 'bg-amber-50 text-amber-700',
-    danger: 'bg-red-50 text-danger',
+    success: 'bg-successSoft text-success',
+    warning: 'bg-warningSoft text-warning',
+    danger: 'bg-dangerSoft text-danger',
     info: 'bg-highlight text-primary',
   }[tone];
   return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${styles}`}>{children}</span>;
@@ -101,8 +101,8 @@ export function Badge({ children, tone = 'neutral' }: { children: ReactNode; ton
 export function Alert({ children, tone = 'info' }: { children: ReactNode; tone?: 'info' | 'danger' | 'warning' }) {
   const styles = {
     info: 'border-highlightLine bg-highlight text-ink',
-    danger: 'border-red-100 bg-red-50 text-red-900',
-    warning: 'border-amber-100 bg-amber-50 text-amber-900',
+    danger: 'border-danger/30 bg-dangerSoft text-ink',
+    warning: 'border-warning/30 bg-warningSoft text-ink',
   }[tone];
   return <div role="status" className={`rounded-xl border px-4 py-3 text-sm ${styles}`}>{children}</div>;
 }
@@ -150,7 +150,7 @@ export function Modal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-0 sm:items-center sm:p-6" role="presentation">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-overlay p-0 sm:items-center sm:p-6" role="presentation">
       <div
         role="dialog"
         aria-modal="true"

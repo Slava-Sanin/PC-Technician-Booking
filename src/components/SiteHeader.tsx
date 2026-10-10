@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BrandLogo } from './BrandLogo';
 import { LanguageSwitcher } from './LanguageSwitcher';
+import { ThemeSwitcher } from './ThemeSwitcher';
 import type { CustomerProfile } from '../services/customerService';
 import type { StaffProfile } from '../types/bookingSettings';
 
@@ -43,14 +44,14 @@ export function SiteHeader({
     : null;
 
   return (
-    <header className="shrink-0 border-b border-line bg-surface">
+    <header className="shrink-0 border-b border-line bg-hd text-hdt">
       <div className="flex w-full items-center justify-between gap-3 px-3 py-2 sm:px-5 xl:px-8">
         <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
           <BrandLogo />
           <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase leading-none tracking-wide text-secondary">{t('brandKicker')}</p>
-            <h1 className="truncate text-base font-semibold leading-tight text-ink sm:text-lg">{t('title')}</h1>
-            {subtitle ? <p className="hidden truncate text-xs text-muted sm:block">{subtitle}</p> : null}
+            <p className="text-[10px] font-semibold uppercase leading-none tracking-wide text-hdt/70">{t('brandKicker')}</p>
+            <h1 className="truncate text-base font-semibold leading-tight text-hdt sm:text-lg">{t('title')}</h1>
+            {subtitle ? <p className="hidden truncate text-xs text-hdt/75 sm:block">{subtitle}</p> : null}
           </div>
         </div>
         <div className="flex shrink-0 items-stretch gap-2 sm:gap-3">
@@ -87,7 +88,8 @@ export function SiteHeader({
               <SectorButton onClick={onStaffAdmin}>{t('admin')}</SectorButton>
             ) : null}
           </HeaderSector>
-          <div className="ms-1 flex items-center self-center sm:ms-3">
+          <div className="ms-1 flex items-center gap-1 self-center sm:ms-3 sm:gap-1.5">
+            <ThemeSwitcher />
             <LanguageSwitcher />
           </div>
         </div>

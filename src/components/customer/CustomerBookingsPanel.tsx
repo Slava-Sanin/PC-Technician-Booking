@@ -84,7 +84,7 @@ export function CustomerBookingsPanel({ onClose }: { onClose: () => void }) {
   const editingBooking = editingId ? bookings.find((booking) => booking.id === editingId) : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4">
       <Card className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden p-0">
         <div className="relative flex items-center border-b border-line px-4 py-3">
           <div className="flex-1 text-center">

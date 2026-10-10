@@ -4,6 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "themes:build": "node scripts/build-themes.mjs",
+    "themes:contrast": "node scripts/check-theme-contrast.mjs",
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",

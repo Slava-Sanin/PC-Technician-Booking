@@ -64,7 +64,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
       {children}
       {open && options ? (
         <div
-          className="fixed inset-0 z-[100] flex items-end justify-center bg-slate-900/40 p-0 sm:items-center sm:p-6"
+          className="fixed inset-0 z-[100] flex items-end justify-center bg-overlay p-0 sm:items-center sm:p-6"
           role="presentation"
           onClick={() => close(false)}
         >

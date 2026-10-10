@@ -15,7 +15,7 @@ export function LanguageSwitcher() {
           onClick={() => i18n.changeLanguage(language)}
           className={`min-w-[1.5rem] rounded px-1.5 py-0.5 text-[10px] font-semibold leading-none transition-colors ${
             current === language
-              ? 'bg-primary text-white'
+              ? 'bg-primary/30 font-semibold text-ink ring-1 ring-primary/40'
               : 'border border-line bg-surface text-ink hover:bg-canvas'
           }`}
         >

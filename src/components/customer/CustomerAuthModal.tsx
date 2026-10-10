@@ -110,7 +110,7 @@ export function CustomerAuthModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4">
       <div className="w-full max-w-md rounded-2xl bg-surface p-5 shadow-xl">
         <div className="relative mb-4 flex items-center">
           <h2 className="flex-1 text-center text-lg font-semibold text-ink">
