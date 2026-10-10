@@ -4,7 +4,7 @@ import { ArrowLeft, LogIn } from 'lucide-react';
 import { toast, Toaster } from 'react-hot-toast';
 import { supabase } from '../../lib/supabase';
 import { BrandLogo } from '../BrandLogo';
-import { LanguageSwitcher } from '../LanguageSwitcher';
+import { SiteHeader } from '../SiteHeader';
 import { AdminWorkspace } from './AdminWorkspace';
 import { useBookingSettings } from '../../hooks/useBookingSettings';
 import { useBookings } from '../../hooks/useBookings';
@@ -15,12 +15,12 @@ import type { StaffProfile } from '../../types/bookingSettings';
 import { Button } from '../ui';
 
 interface AdminViewProps {
-  onLogout: () => void;
+  onCloseAdmin: () => void;
 }
 
 type Access = 'loading' | 'anonymous' | 'staff';
 
-export function AdminView({ onLogout }: AdminViewProps) {
+export function AdminView({ onCloseAdmin }: AdminViewProps) {
   const { t } = useTranslation();
   const [access, setAccess] = useState<Access>('loading');
   const [profile, setProfile] = useState<StaffProfile | null>(null);
@@ -28,6 +28,7 @@ export function AdminView({ onLogout }: AdminViewProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
+  const [staffEmail, setStaffEmail] = useState<string | null>(null);
 
   const staff = access === 'staff';
   const bookingsState = useBookings(staff);
@@ -40,6 +41,7 @@ export function AdminView({ onLogout }: AdminViewProps) {
       if (accessRequest.current !== requestId) return;
       if (error || !data.session) {
         setProfile(null);
+        setStaffEmail(null);
         setAccess('anonymous');
         return;
       }
@@ -48,10 +50,13 @@ export function AdminView({ onLogout }: AdminViewProps) {
         if (accessRequest.current !== requestId) return;
         if (isActiveStaff(nextProfile)) {
           setProfile(nextProfile);
+          const { data: userData } = await supabase.auth.getUser();
+          setStaffEmail(userData.user?.email ?? null);
           setAccess('staff');
           return;
         }
         setProfile(null);
+        setStaffEmail(null);
         setAccess('anonymous');
       } catch {
         if (accessRequest.current !== requestId) return;
@@ -85,11 +90,14 @@ export function AdminView({ onLogout }: AdminViewProps) {
           return;
         }
         setProfile(nextProfile);
+        const { data: userData } = await supabase.auth.getUser();
+        setStaffEmail(userData.user?.email ?? null);
         setAccess('staff');
       } catch {
         if (accessRequest.current !== requestId) return;
         toast.error(t('fetchError'));
         setProfile(null);
+        setStaffEmail(null);
         setAccess('anonymous');
       }
     } catch (error) {
@@ -107,11 +115,27 @@ export function AdminView({ onLogout }: AdminViewProps) {
       accessRequest.current += 1;
       await supabase.auth.signOut();
       setProfile(null);
+      setStaffEmail(null);
       setAccess('anonymous');
-      onLogout();
     } catch {
       toast.error(t('logoutError'));
     }
+  };
+
+  const handleGoToBooking = async () => {
+    if (staff && profile) {
+      try {
+        accessRequest.current += 1;
+        await supabase.auth.signOut();
+        setProfile(null);
+        setStaffEmail(null);
+        setAccess('anonymous');
+      } catch {
+        toast.error(t('logoutError'));
+        return;
+      }
+    }
+    onCloseAdmin();
   };
 
   if (access === 'loading' || (staff && !bookingsState.loaded)) {
@@ -124,9 +148,20 @@ export function AdminView({ onLogout }: AdminViewProps) {
 
   if (access === 'anonymous') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-canvas px-4 py-12">
+      <div className="flex min-h-screen flex-col bg-canvas">
         <Toaster position="top-right" />
-        <div className="fixed top-4 end-4"><LanguageSwitcher /></div>
+        <SiteHeader
+          area="admin"
+          customer={null}
+          staff={null}
+          onCustomerAccount={() => onCloseAdmin()}
+          onCustomerBookings={() => onCloseAdmin()}
+          onCustomerLogout={() => {}}
+          onStaffAdmin={() => {}}
+          onStaffLogout={() => {}}
+          onGoToBooking={() => onCloseAdmin()}
+        />
+        <div className="flex flex-1 items-center justify-center px-4 py-12">
         <form className="w-full max-w-md space-y-4 rounded-2xl border border-line bg-surface p-6 shadow-card" onSubmit={(event) => void handleLogin(event)}>
           <div className="flex flex-col items-center gap-3">
             <BrandLogo className="h-24 w-auto object-contain sm:h-28" />
@@ -136,8 +171,9 @@ export function AdminView({ onLogout }: AdminViewProps) {
           <input type="email" required autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder={t('email')} className="w-full rounded-lg border border-line px-3 py-2" />
           <input type="password" required autoComplete="current-password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder={t('password')} className="w-full rounded-lg border border-line px-3 py-2" />
           <Button className="w-full" disabled={loginLoading}><LogIn className="h-4 w-4" />{loginLoading ? t('loggingIn') : t('login')}</Button>
-          <Button type="button" variant="ghost" className="w-full" onClick={onLogout}><ArrowLeft className="h-4 w-4 rtl:rotate-180" />{t('backToBooking')}</Button>
+          <Button type="button" variant="ghost" className="w-full" onClick={() => onCloseAdmin()}><ArrowLeft className="h-4 w-4 rtl:rotate-180" />{t('backToBooking')}</Button>
         </form>
+        </div>
       </div>
     );
   }
@@ -153,16 +189,18 @@ export function AdminView({ onLogout }: AdminViewProps) {
   return (
     <div className="min-h-screen bg-canvas">
       <Toaster position="top-right" />
-      <header className="flex items-center justify-between gap-3 border-b border-line bg-surface px-4 py-4">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <BrandLogo className="h-16 w-auto shrink-0 object-contain sm:h-20" />
-          <h1 className="truncate text-lg font-semibold">{t('adminTitle')}</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <LanguageSwitcher />
-          <Button variant="ghost" onClick={() => void handleLogout()}>{t('logout')}</Button>
-        </div>
-      </header>
+      <SiteHeader
+        area="admin"
+        customer={null}
+        staff={profile}
+        staffEmail={staffEmail}
+        onCustomerAccount={() => void handleGoToBooking()}
+        onCustomerBookings={() => void handleGoToBooking()}
+        onCustomerLogout={() => {}}
+        onStaffAdmin={() => {}}
+        onStaffLogout={() => void handleLogout()}
+        onGoToBooking={() => void handleGoToBooking()}
+      />
       <AdminWorkspace profile={profile} bookingsState={bookingsState} settingsState={settingsState} />
     </div>
   );

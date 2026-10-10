@@ -37,7 +37,7 @@ function App() {
   return (
     <ConfirmProvider>
       {showAdmin ? (
-        <AdminView onLogout={() => setShowAdmin(false)} />
+        <AdminView onCloseAdmin={() => setShowAdmin(false)} />
       ) : (
         <>
           <Toaster position="top-center" />

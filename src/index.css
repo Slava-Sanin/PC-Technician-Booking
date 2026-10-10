@@ -69,6 +69,14 @@
     @apply rounded-md px-2 py-0.5 text-xs font-medium text-ink hover:bg-surface sm:px-2.5 sm:py-1 sm:text-sm;
   }
 
+  .header-action-sector-status {
+    @apply max-w-[9rem] truncate px-1 text-center text-[10px] font-semibold leading-tight text-ink sm:max-w-[11rem] sm:text-xs;
+  }
+
+  .header-action-sector-actions {
+    @apply flex flex-wrap items-center justify-center gap-0.5 sm:gap-1;
+  }
+
   .form-control {
     @apply box-border block w-full max-w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink transition placeholder:text-muted disabled:cursor-not-allowed disabled:bg-canvas disabled:text-muted;
   }

@@ -21,13 +21,14 @@ import {
   Wifi,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { BrandLogo } from '../BrandLogo';
-import { LanguageSwitcher } from '../LanguageSwitcher';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, ModalFooter, Select, Skeleton, Textarea } from '../ui';
 import { CustomerAuthModal } from '../customer/CustomerAuthModal';
 import { CustomerBookingsPanel } from '../customer/CustomerBookingsPanel';
 import { useAvailability, useMonthAvailability } from '../../hooks/useAvailability';
-import { fetchCustomerProfile, type CustomerProfile } from '../../services/customerService';
+import { fetchCustomerProfile, logoutCustomer, type CustomerProfile } from '../../services/customerService';
+import { fetchMyProfile, isActiveStaff } from '../../services/profileService';
+import type { StaffProfile } from '../../types/bookingSettings';
+import { SiteHeader } from '../SiteHeader';
 import { confirmBooking, fetchPublicBookingConfig, fetchServiceCatalog, requestBookingConfirmation } from '../../services/publicApi';
 import { supabase } from '../../lib/supabase';
 import type { AvailabilityQuery, BankInstructions, CreateBookingResponse } from '../../types/api';
@@ -184,6 +185,8 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
   const [verificationCode, setVerificationCode] = useState('');
   const [codeSent, setCodeSent] = useState(false);
   const [customer, setCustomer] = useState<CustomerProfile | null>(null);
+  const [staffProfile, setStaffProfile] = useState<StaffProfile | null>(null);
+  const [staffEmail, setStaffEmail] = useState<string | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
   const [bookingsOpen, setBookingsOpen] = useState(false);
   const [visibleMonth, setVisibleMonth] = useState(() => calendarDateFromISO(todayISOInTimeZone(BUSINESS_TIME_ZONE)));
@@ -208,18 +211,82 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
     void load();
   }, []);
 
-  const refreshCustomer = async () => {
+  const refreshAuth = async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    if (!sessionData.session) {
+      setCustomer(null);
+      setStaffProfile(null);
+      setStaffEmail(null);
+      return;
+    }
+
     try {
-      setCustomer(await fetchCustomerProfile());
+      const customerProfile = await fetchCustomerProfile();
+      if (customerProfile) {
+        setCustomer(customerProfile);
+        setStaffProfile(null);
+        setStaffEmail(null);
+        return;
+      }
     } catch {
       setCustomer(null);
     }
+
+    try {
+      const profile = await fetchMyProfile();
+      if (isActiveStaff(profile)) {
+        setStaffProfile(profile);
+        setCustomer(null);
+        const { data: userData } = await supabase.auth.getUser();
+        setStaffEmail(userData.user?.email ?? null);
+        return;
+      }
+    } catch {
+      // ignore
+    }
+
+    setCustomer(null);
+    setStaffProfile(null);
+    setStaffEmail(null);
+  };
+
+  const signOutStaff = async () => {
+    await supabase.auth.signOut();
+    setStaffProfile(null);
+    setStaffEmail(null);
+  };
+
+  const handleOpenAdmin = async () => {
+    if (customer) {
+      await logoutCustomer();
+      setCustomer(null);
+    }
+    onOpenAdmin();
+  };
+
+  const handleOpenAuth = async () => {
+    if (staffProfile) await signOutStaff();
+    setAuthOpen(true);
+  };
+
+  const handleOpenBookings = async () => {
+    if (staffProfile) await signOutStaff();
+    setBookingsOpen(true);
+  };
+
+  const handleLogoutCustomer = async () => {
+    await logoutCustomer();
+    setCustomer(null);
+  };
+
+  const handleLogoutStaff = async () => {
+    await signOutStaff();
   };
 
   useEffect(() => {
-    void refreshCustomer();
+    void refreshAuth();
     const { data: subscription } = supabase.auth.onAuthStateChange(() => {
-      void refreshCustomer();
+      void refreshAuth();
     });
     return () => subscription.subscription.unsubscribe();
   }, []);
@@ -387,7 +454,16 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
 
   if (result) {
     return (
-      <Shell onOpenAdmin={onOpenAdmin} customer={customer} onOpenAuth={() => setAuthOpen(true)} onOpenBookings={() => setBookingsOpen(true)}>
+      <Shell
+        customer={customer}
+        staff={staffProfile}
+        staffEmail={staffEmail}
+        onOpenAdmin={() => void handleOpenAdmin()}
+        onOpenAuth={() => void handleOpenAuth()}
+        onOpenBookings={() => void handleOpenBookings()}
+        onLogoutCustomer={() => void handleLogoutCustomer()}
+        onLogoutStaff={() => void handleLogoutStaff()}
+      >
         <Card className="mx-auto max-w-xl p-6">
           <Badge tone="success">{t('bookingConfirmed')}</Badge>
           <h1 className="mt-3 text-2xl font-semibold">{t('bookingSuccess')}</h1>
@@ -403,7 +479,17 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
   }
 
   return (
-    <Shell onOpenAdmin={onOpenAdmin} subtitle={t('subtitle')} customer={customer} onOpenAuth={() => setAuthOpen(true)} onOpenBookings={() => setBookingsOpen(true)}>
+    <Shell
+      subtitle={t('subtitle')}
+      customer={customer}
+      staff={staffProfile}
+      staffEmail={staffEmail}
+      onOpenAdmin={() => void handleOpenAdmin()}
+      onOpenAuth={() => void handleOpenAuth()}
+      onOpenBookings={() => void handleOpenBookings()}
+      onLogoutCustomer={() => void handleLogoutCustomer()}
+      onLogoutStaff={() => void handleLogoutStaff()}
+    >
       {loading ? <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">{Array.from({ length: 8 }).map((_, index) => <Skeleton key={index} className="h-20" />)}</div> : null}
       {loadError ? (
         <Alert tone="danger">
@@ -672,7 +758,7 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
             : <Button disabled={!canContinue()} onClick={() => setStep((value) => value + 1)}>{t('next')}</Button>}
         </ModalFooter>
       </div>
-      <CustomerAuthModal open={authOpen} onClose={() => setAuthOpen(false)} onSuccess={() => void refreshCustomer()} />
+      <CustomerAuthModal open={authOpen} onClose={() => setAuthOpen(false)} onSuccess={() => void refreshAuth()} />
       {customer && bookingsOpen ? (
         <CustomerBookingsPanel profile={customer} onClose={() => setBookingsOpen(false)} onLogout={() => setCustomer(null)} />
       ) : null}
@@ -753,51 +839,42 @@ function BankBlock({ instructions, locale }: { instructions?: BankInstructions |
 
 function Shell({
   children,
-  onOpenAdmin,
   subtitle,
   customer,
+  staff,
+  staffEmail,
+  onOpenAdmin,
   onOpenAuth,
   onOpenBookings,
+  onLogoutCustomer,
+  onLogoutStaff,
 }: {
   children: ReactNode;
-  onOpenAdmin: () => void;
   subtitle?: string;
-  customer?: CustomerProfile | null;
-  onOpenAuth?: () => void;
-  onOpenBookings?: () => void;
+  customer: CustomerProfile | null;
+  staff: StaffProfile | null;
+  staffEmail: string | null;
+  onOpenAdmin: () => void;
+  onOpenAuth: () => void;
+  onOpenBookings: () => void;
+  onLogoutCustomer: () => void;
+  onLogoutStaff: () => void;
 }) {
-  const { t } = useTranslation();
   return (
     <div className="flex min-h-dvh flex-col overflow-hidden bg-canvas pb-14 lg:pb-0">
-      <header className="shrink-0 border-b border-line bg-surface">
-        <div className="flex w-full items-center justify-between gap-3 px-3 py-2 sm:px-5 xl:px-8">
-          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-            <BrandLogo />
-            <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase leading-none tracking-wide text-secondary">{t('brandKicker')}</p>
-            <h1 className="truncate text-base font-semibold leading-tight text-ink sm:text-lg">{t('title')}</h1>
-            {subtitle ? <p className="hidden truncate text-xs text-muted sm:block">{subtitle}</p> : null}
-            </div>
-          </div>
-          <div className="flex shrink-0 items-end gap-2 pt-1.5 sm:gap-3 sm:pt-2">
-            <div className="header-action-sector">
-              <span className="header-action-sector-label">{t('headerSectorClients')}</span>
-              {customer ? (
-                <button type="button" onClick={onOpenBookings} className="header-action-sector-btn">{t('customerMyBookings')}</button>
-              ) : (
-                <button type="button" onClick={onOpenAuth} className="header-action-sector-btn">{t('customerAccount')}</button>
-              )}
-            </div>
-            <div className="header-action-sector">
-              <span className="header-action-sector-label">{t('headerSectorStaff')}</span>
-              <button type="button" onClick={onOpenAdmin} className="header-action-sector-btn">{t('admin')}</button>
-            </div>
-            <div className="ms-3 sm:ms-5">
-              <LanguageSwitcher />
-            </div>
-          </div>
-        </div>
-      </header>
+      <SiteHeader
+        subtitle={subtitle}
+        area="booking"
+        customer={customer}
+        staff={staff}
+        staffEmail={staffEmail}
+        onCustomerAccount={onOpenAuth}
+        onCustomerBookings={onOpenBookings}
+        onCustomerLogout={onLogoutCustomer}
+        onStaffAdmin={onOpenAdmin}
+        onStaffLogout={onLogoutStaff}
+        onGoToBooking={() => {}}
+      />
       <main className="flex min-h-0 w-full flex-1 flex-col overflow-hidden px-3 py-2 sm:px-5 xl:px-8">{children}</main>
     </div>
   );
