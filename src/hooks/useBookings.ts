@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchBookings, softDeleteBooking, updateBooking, updateBookingStatus } from '../services/bookingService';
-import type { Booking, BookingStatus, BookingUpdate, EditableBookingField } from '../types/booking';
+import type { Booking, BookingStatus, EditableBookingField } from '../types/booking';
+import { bookingFieldPatch } from '../utils/bookingFieldPatch';
 
 export function useBookings(enabled: boolean) {
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -36,18 +37,7 @@ export function useBookings(enabled: boolean) {
   }, [refresh]);
 
   const saveField = useCallback(async (id: string, field: EditableBookingField, value: string) => {
-    const patch: BookingUpdate = {};
-    if (field === 'city') {
-      patch.city = value.trim() ? value.trim() : null;
-    } else if (field === 'comments' || field === 'technician_notes') {
-      patch[field] = value;
-    } else if (field === 'appointment_date') {
-      patch.appointment_date = value;
-    } else {
-      patch[field] = value.trim();
-    }
-
-    await updateBooking(id, patch);
+    await updateBooking(id, bookingFieldPatch(field, value));
     await refresh();
   }, [refresh]);
 

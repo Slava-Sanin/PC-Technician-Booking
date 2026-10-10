@@ -34,8 +34,8 @@ import {
 } from '../../services/catalogService';
 import type { PublicBookingConfig, StaffProfile, WorkingHourDay } from '../../types/bookingSettings';
 import { AppointmentDateTimeField } from '../schedule/AppointmentDateTimeField';
-import { BOOKING_STATUSES, type Booking, type BookingStatus, type EditableBookingField } from '../../types/booking';
-import { PAYMENT_POLICIES, PRICE_TYPES, localized, type PaymentPolicy, type PriceType } from '../../types/catalog';
+import { BOOKING_STATUSES, PAYMENT_STATUSES, type Booking, type BookingStatus, type EditableBookingField } from '../../types/booking';
+import { DEVICE_TYPES, OPERATING_SYSTEMS, PAYMENT_POLICIES, PRICE_TYPES, SERVICE_MODES, localized, type PaymentPolicy, type PriceType } from '../../types/catalog';
 import { isPublicCategory, isPublicService } from '../../utils/catalogRules';
 import { BUSINESS_TIME_ZONE, DISPLAY_DATETIME_HINT, formatAppointmentInZone, formatISODateToDisplay, getZonedParts, parseDisplayDate, parseDisplayDateTime, todayISOInTimeZone, zonedTimeToUtc } from '../../utils/dateTime';
 import { formatBookingLocation } from '../../utils/formatBookingLocation';
@@ -298,11 +298,20 @@ function BookingEditor({
   const [firstName, setFirstName] = useState(booking.first_name);
   const [lastName, setLastName] = useState(booking.last_name);
   const [phone, setPhone] = useState(booking.phone);
+  const [email, setEmail] = useState(booking.email ?? '');
   const [city, setCity] = useState(booking.city ?? '');
   const [address, setAddress] = useState(booking.address);
+  const [serviceMode, setServiceMode] = useState(booking.service_mode ?? 'onsite');
   const [operatingSystem, setOperatingSystem] = useState(booking.operating_system);
+  const [deviceType, setDeviceType] = useState(booking.device_type ?? '');
+  const [deviceBrand, setDeviceBrand] = useState(booking.device_brand ?? '');
+  const [deviceModel, setDeviceModel] = useState(booking.device_model ?? '');
+  const [problemDescription, setProblemDescription] = useState(booking.problem_description ?? '');
   const [comments, setComments] = useState(booking.comments ?? '');
   const [technicianNotes, setTechnicianNotes] = useState(booking.technician_notes ?? '');
+  const [paymentStatus, setPaymentStatus] = useState(booking.payment_status ?? '');
+  const [totalAmount, setTotalAmount] = useState(booking.total_amount == null ? '' : String(booking.total_amount));
+  const [currency, setCurrency] = useState(booking.currency ?? 'ILS');
   const [appointmentDisplay, setAppointmentDisplay] = useState(() =>
     formatAppointmentInZone(booking.appointment_start || booking.appointment_date, timeZone),
   );
@@ -313,11 +322,20 @@ function BookingEditor({
     setFirstName(booking.first_name);
     setLastName(booking.last_name);
     setPhone(booking.phone);
+    setEmail(booking.email ?? '');
     setCity(booking.city ?? '');
     setAddress(booking.address);
+    setServiceMode(booking.service_mode ?? 'onsite');
     setOperatingSystem(booking.operating_system);
+    setDeviceType(booking.device_type ?? '');
+    setDeviceBrand(booking.device_brand ?? '');
+    setDeviceModel(booking.device_model ?? '');
+    setProblemDescription(booking.problem_description ?? '');
     setComments(booking.comments ?? '');
     setTechnicianNotes(booking.technician_notes ?? '');
+    setPaymentStatus(booking.payment_status ?? '');
+    setTotalAmount(booking.total_amount == null ? '' : String(booking.total_amount));
+    setCurrency(booking.currency ?? 'ILS');
     setAppointmentDisplay(formatAppointmentInZone(booking.appointment_start || booking.appointment_date, timeZone));
     setStatus(booking.status);
   }, [booking, timeZone]);
@@ -331,11 +349,20 @@ function BookingEditor({
     if (firstName.trim() !== booking.first_name.trim()) return true;
     if (lastName.trim() !== booking.last_name.trim()) return true;
     if (phone.trim() !== booking.phone.trim()) return true;
+    if (email.trim() !== (booking.email ?? '').trim()) return true;
     if (city.trim() !== (booking.city ?? '').trim()) return true;
     if (address.trim() !== booking.address.trim()) return true;
+    if (serviceMode !== (booking.service_mode ?? 'onsite')) return true;
     if (operatingSystem !== booking.operating_system) return true;
+    if (deviceType !== (booking.device_type ?? '')) return true;
+    if (deviceBrand !== (booking.device_brand ?? '')) return true;
+    if (deviceModel !== (booking.device_model ?? '')) return true;
+    if (problemDescription !== (booking.problem_description ?? '')) return true;
     if (comments !== (booking.comments ?? '')) return true;
     if (technicianNotes !== (booking.technician_notes ?? '')) return true;
+    if (paymentStatus !== (booking.payment_status ?? '')) return true;
+    if (totalAmount !== (booking.total_amount == null ? '' : String(booking.total_amount))) return true;
+    if (currency.trim().toUpperCase() !== (booking.currency ?? 'ILS').trim().toUpperCase()) return true;
     if (status !== booking.status) return true;
     if (appointmentDisplay.trim() === savedAppointmentDisplay.trim()) return false;
     const parsed = parseDisplayDateTime(appointmentDisplay);
@@ -348,14 +375,23 @@ function BookingEditor({
     booking,
     city,
     comments,
+    currency,
+    deviceBrand,
+    deviceModel,
+    deviceType,
+    email,
     firstName,
     lastName,
     operatingSystem,
+    paymentStatus,
     phone,
+    problemDescription,
     savedAppointmentDisplay,
+    serviceMode,
     status,
     technicianNotes,
     timeZone,
+    totalAmount,
   ]);
 
   const saveAll = async () => {
@@ -375,20 +411,47 @@ function BookingEditor({
       if (phone.trim() !== booking.phone.trim()) {
         updates.push(onUpdateField(booking.id, 'phone', phone.trim()));
       }
+      if (email.trim() !== (booking.email ?? '').trim()) {
+        updates.push(onUpdateField(booking.id, 'email', email.trim()));
+      }
       if (city.trim() !== (booking.city ?? '').trim()) {
         updates.push(onUpdateField(booking.id, 'city', city.trim()));
       }
       if (address.trim() !== booking.address.trim()) {
         updates.push(onUpdateField(booking.id, 'address', address.trim()));
       }
+      if (serviceMode !== (booking.service_mode ?? 'onsite')) {
+        updates.push(onUpdateField(booking.id, 'service_mode', serviceMode));
+      }
       if (operatingSystem !== booking.operating_system) {
         updates.push(onUpdateField(booking.id, 'operating_system', operatingSystem));
+      }
+      if (deviceType !== (booking.device_type ?? '')) {
+        updates.push(onUpdateField(booking.id, 'device_type', deviceType));
+      }
+      if (deviceBrand !== (booking.device_brand ?? '')) {
+        updates.push(onUpdateField(booking.id, 'device_brand', deviceBrand));
+      }
+      if (deviceModel !== (booking.device_model ?? '')) {
+        updates.push(onUpdateField(booking.id, 'device_model', deviceModel));
+      }
+      if (problemDescription !== (booking.problem_description ?? '')) {
+        updates.push(onUpdateField(booking.id, 'problem_description', problemDescription));
       }
       if (comments !== (booking.comments ?? '')) {
         updates.push(onUpdateField(booking.id, 'comments', comments));
       }
       if (technicianNotes !== (booking.technician_notes ?? '')) {
         updates.push(onUpdateField(booking.id, 'technician_notes', technicianNotes));
+      }
+      if (paymentStatus !== (booking.payment_status ?? '')) {
+        updates.push(onUpdateField(booking.id, 'payment_status', paymentStatus));
+      }
+      if (totalAmount !== (booking.total_amount == null ? '' : String(booking.total_amount))) {
+        updates.push(onUpdateField(booking.id, 'total_amount', totalAmount));
+      }
+      if (currency.trim().toUpperCase() !== (booking.currency ?? 'ILS').trim().toUpperCase()) {
+        updates.push(onUpdateField(booking.id, 'currency', currency.trim()));
       }
       if (status !== booking.status) {
         updates.push(onStatus(booking.id, status));
@@ -433,7 +496,7 @@ function BookingEditor({
           <Input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} />
         </Field>
         <Field label={t('email')}>
-          <Input type="email" value={booking.email ?? ''} readOnly disabled className="opacity-70" />
+          <Input type="email" value={email} maxLength={120} onChange={(event) => setEmail(event.target.value)} />
         </Field>
         <Field label={t('city')}>
           <Input value={city} maxLength={80} onChange={(event) => setCity(event.target.value)} />
@@ -451,12 +514,38 @@ function BookingEditor({
           timeZone={timeZone}
         />
       </Field>
+      <Field label={t('step_mode')}>
+        <Select value={serviceMode} onChange={(event) => setServiceMode(event.target.value)}>
+          {SERVICE_MODES.map((mode) => (
+            <option key={mode} value={mode}>{t(`mode_${mode}`)}</option>
+          ))}
+        </Select>
+      </Field>
       <Field label={t('operatingSystem')}>
         <Select value={operatingSystem} onChange={(event) => setOperatingSystem(event.target.value)}>
-          <option value="windows">{t('windows')}</option>
-          <option value="linux">{t('linux')}</option>
-          <option value="macos">{t('macos')}</option>
+          {OPERATING_SYSTEMS.map((os) => (
+            <option key={os} value={os}>{t(`os_${os}`)}</option>
+          ))}
         </Select>
+      </Field>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Field label={t('deviceType')}>
+          <Select value={deviceType} onChange={(event) => setDeviceType(event.target.value)}>
+            <option value="">—</option>
+            {DEVICE_TYPES.map((device) => (
+              <option key={device} value={device}>{t(`device_${device}`)}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label={t('deviceBrand')}>
+          <Input value={deviceBrand} maxLength={80} onChange={(event) => setDeviceBrand(event.target.value)} />
+        </Field>
+        <Field label={t('deviceModel')}>
+          <Input value={deviceModel} maxLength={80} onChange={(event) => setDeviceModel(event.target.value)} />
+        </Field>
+      </div>
+      <Field label={t('problemDescription')}>
+        <Textarea rows={3} value={problemDescription} dir="auto" onChange={(event) => setProblemDescription(event.target.value)} />
       </Field>
       <Field label={t('comments')}>
         <Textarea rows={2} value={comments} onChange={(event) => setComments(event.target.value)} />
@@ -464,20 +553,31 @@ function BookingEditor({
       <Field label={t('technicianNotes')}>
         <Textarea rows={2} value={technicianNotes} onChange={(event) => setTechnicianNotes(event.target.value)} />
       </Field>
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Field label={t('payment')}>
+          <Select value={paymentStatus} onChange={(event) => setPaymentStatus(event.target.value)}>
+            <option value="">—</option>
+            {PAYMENT_STATUSES.map((item) => (
+              <option key={item} value={item}>{t(`pay_${item}`)}</option>
+            ))}
+          </Select>
+        </Field>
+        <Field label={t('total')}>
+          <Input
+            type="number"
+            min={0}
+            step="0.01"
+            value={totalAmount}
+            onChange={(event) => setTotalAmount(event.target.value)}
+          />
+        </Field>
+        <Field label={t('currency')}>
+          <Input value={currency} maxLength={3} onChange={(event) => setCurrency(event.target.value.toUpperCase())} />
+        </Field>
+      </div>
 
       <div className="rounded-xl border border-line bg-canvas px-3 py-2 text-muted">
-        <p className="flex flex-wrap items-center">
-          <DotSep />
-          {t(`mode_${booking.service_mode ?? 'onsite'}`)}
-        </p>
-        {[booking.device_type, booking.device_brand, booking.device_model].some(Boolean) ? (
-          <p className="mt-1 flex flex-wrap items-center">
-            <DotSep />
-            {[booking.device_type, booking.device_brand, booking.device_model].filter(Boolean).join(' ')}
-          </p>
-        ) : null}
-        {booking.problem_description ? <p className="mt-1">{booking.problem_description}</p> : null}
-        <ul className="mt-2 space-y-1">
+        <ul className="space-y-1">
           {(booking.booking_services ?? []).map((line) => (
             <li key={line.id} className="flex flex-wrap items-center text-ink">
               {localized(line.service_name_snapshot, i18n.language)}

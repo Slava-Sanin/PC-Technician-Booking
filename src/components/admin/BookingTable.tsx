@@ -4,9 +4,9 @@ import { MapPin, Trash2 } from 'lucide-react';
 import { useConfirm } from '../ui/ConfirmProvider';
 import { AppointmentDateTimeField } from '../schedule/AppointmentDateTimeField';
 import { compareSortValues, SortableTableHead, TableHead, toggleSortState } from './sortableTableHead';
-import { BOOKING_STATUSES, type Booking, type BookingStatus, type EditableBookingField } from '../../types/booking';
+import { BOOKING_STATUSES, PAYMENT_STATUSES, type Booking, type BookingStatus, type EditableBookingField } from '../../types/booking';
 import type { PublicBookingConfig } from '../../types/bookingSettings';
-import { localized } from '../../types/catalog';
+import { DEVICE_TYPES, localized, OPERATING_SYSTEMS, SERVICE_MODES } from '../../types/catalog';
 import { formatAppointmentInZone, parseDisplayDateTime, zonedTimeToUtc } from '../../utils/dateTime';
 import { formatMoney } from '../../utils/pricing';
 
@@ -70,15 +70,29 @@ function serviceSummary(booking: Booking, locale: string): string {
     .join(', ');
 }
 
-function deviceSummary(booking: Booking): string {
-  return [booking.device_type, booking.device_brand, booking.device_model].filter(Boolean).join(' ');
-}
-
 function paymentLabel(t: (key: string) => string, status: string | null): string {
   if (!status) return '—';
   const key = `pay_${status}`;
   const translated = t(key);
   return translated === key ? status : translated;
+}
+
+function storedFieldText(booking: Booking, field: EditableBookingField): string {
+  if (field === 'total_amount') {
+    return booking.total_amount == null ? '' : String(booking.total_amount);
+  }
+  if (field === 'currency') {
+    return booking.currency ?? '';
+  }
+  if (field === 'payment_status') {
+    return booking.payment_status ?? '';
+  }
+  if (field === 'service_mode') {
+    return booking.service_mode ?? 'onsite';
+  }
+  const value = booking[field as keyof Booking];
+  if (value == null) return '';
+  return String(value);
 }
 
 export function BookingTable({
@@ -123,8 +137,7 @@ export function BookingTable({
   const fieldValue = (booking: Booking, field: EditableBookingField): string => {
     const draft = drafts[booking.id]?.[field];
     if (draft !== undefined) return draft;
-    const value = booking[field];
-    return value ?? '';
+    return storedFieldText(booking, field);
   };
 
   const setDraft = (id: string, field: EditableBookingField, value: string) => {
@@ -145,8 +158,7 @@ export function BookingTable({
   const saveText = async (booking: Booking, field: EditableBookingField) => {
     const draft = drafts[booking.id]?.[field];
     if (draft === undefined) return;
-    const original = booking[field] ?? '';
-    if (draft === original || (field === 'city' && draft === '' && booking.city === null)) {
+    if (draft === storedFieldText(booking, field)) {
       clearDraft(booking.id, field);
       return;
     }
@@ -179,8 +191,8 @@ export function BookingTable({
 
   return (
     <div className="overflow-hidden rounded-lg bg-surface shadow">
-      <div className="overflow-x-auto">
-        <table className="table-cols-center min-w-full text-sm">
+      <div className="table-scroll-pane">
+        <table className="table-cols-center w-max min-w-full text-sm">
           <thead>
             <tr>
               <TableHead label="#" className={headClass} />
@@ -256,25 +268,35 @@ export function BookingTable({
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2 text-muted">{booking.email ?? '—'}</td>
                   <td className="px-2 py-2">
                     <input
+                      type="email"
+                      value={fieldValue(booking, 'email')}
+                      onChange={(event) => setDraft(booking.id, 'email', event.target.value)}
+                      onBlur={() => void saveText(booking, 'email')}
+                      className={cellInputClass}
+                      placeholder="—"
+                    />
+                  </td>
+                  <td className="px-2 py-2 text-center">
+                    <input
                       type="text"
+                      dir="auto"
                       value={fieldValue(booking, 'city')}
                       onChange={(event) => setDraft(booking.id, 'city', event.target.value)}
                       onBlur={() => void saveText(booking, 'city')}
-                      className={cellInputClass}
+                      className={`mx-auto text-center ${cellInputClass}`}
                     />
                   </td>
-                  <td className="min-w-[10rem] px-2 py-2">
-                    <div className="flex items-start gap-1">
+                  <td className="min-w-[10rem] px-2 py-2 text-center">
+                    <div className="mx-auto flex max-w-full items-center justify-center gap-1">
                       <input
                         type="text"
                         dir="auto"
                         value={fieldValue(booking, 'address')}
                         onChange={(event) => setDraft(booking.id, 'address', event.target.value)}
                         onBlur={() => void saveText(booking, 'address')}
-                        className={`min-w-[8rem] flex-1 ${cellInputClass}`}
+                        className={`min-w-[8rem] max-w-[14rem] text-center ${cellInputClass}`}
                       />
                       {location ? (
                         <button
@@ -289,24 +311,107 @@ export function BookingTable({
                       ) : null}
                     </div>
                   </td>
-                  <td className="px-2 py-2 whitespace-nowrap text-ink">{t(`mode_${booking.service_mode ?? 'onsite'}`)}</td>
+                  <td className="px-2 py-2">
+                    <select
+                      value={fieldValue(booking, 'service_mode')}
+                      onChange={(event) => void onUpdateField(booking.id, 'service_mode', event.target.value)}
+                      className={cellInputClass}
+                    >
+                      {SERVICE_MODES.map((mode) => (
+                        <option key={mode} value={mode}>{t(`mode_${mode}`)}</option>
+                      ))}
+                    </select>
+                  </td>
                   <td className="px-2 py-2">
                     <select
                       value={booking.operating_system}
                       onChange={(event) => void onUpdateField(booking.id, 'operating_system', event.target.value)}
                       className={cellInputClass}
                     >
-                      <option value="windows">{t('windows')}</option>
-                      <option value="linux">{t('linux')}</option>
-                      <option value="macos">{t('macos')}</option>
+                      {OPERATING_SYSTEMS.map((os) => (
+                        <option key={os} value={os}>{t(`os_${os}`)}</option>
+                      ))}
                     </select>
                   </td>
-                  <td className="max-w-[10rem] px-2 py-2 text-xs text-ink" dir="auto">{deviceSummary(booking) || '—'}</td>
-                  <td className="max-w-[12rem] px-2 py-2 text-xs text-muted" dir="auto">{booking.problem_description ?? '—'}</td>
+                  <td className="max-w-[12rem] px-2 py-2 align-top">
+                    <div className="flex min-w-[8rem] flex-col gap-1">
+                      <select
+                        value={fieldValue(booking, 'device_type')}
+                        onChange={(event) => void onUpdateField(booking.id, 'device_type', event.target.value)}
+                        className={cellInputClass}
+                      >
+                        <option value="">—</option>
+                        {DEVICE_TYPES.map((device) => (
+                          <option key={device} value={device}>{t(`device_${device}`)}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        value={fieldValue(booking, 'device_brand')}
+                        onChange={(event) => setDraft(booking.id, 'device_brand', event.target.value)}
+                        onBlur={() => void saveText(booking, 'device_brand')}
+                        placeholder={t('deviceBrand')}
+                        className={cellInputClass}
+                      />
+                      <input
+                        type="text"
+                        value={fieldValue(booking, 'device_model')}
+                        onChange={(event) => setDraft(booking.id, 'device_model', event.target.value)}
+                        onBlur={() => void saveText(booking, 'device_model')}
+                        placeholder={t('deviceModel')}
+                        className={cellInputClass}
+                      />
+                    </div>
+                  </td>
+                  <td className="max-w-[12rem] px-2 py-2 align-top">
+                    <textarea
+                      value={fieldValue(booking, 'problem_description')}
+                      onChange={(event) => setDraft(booking.id, 'problem_description', event.target.value)}
+                      onBlur={() => void saveText(booking, 'problem_description')}
+                      rows={2}
+                      dir="auto"
+                      className={`min-w-[8rem] ${cellInputClass}`}
+                    />
+                  </td>
                   <td className="max-w-[14rem] px-2 py-2 text-xs text-ink">{serviceSummary(booking, locale) || '—'}</td>
-                  <td className="px-2 py-2 whitespace-nowrap text-ink">{paymentLabel(t, booking.payment_status)}</td>
-                  <td className="px-2 py-2 whitespace-nowrap font-medium text-ink">
-                    {booking.total_amount == null ? '—' : formatMoney(Number(booking.total_amount), booking.currency || 'ILS', locale)}
+                  <td className="px-2 py-2">
+                    <select
+                      value={fieldValue(booking, 'payment_status')}
+                      onChange={(event) => void onUpdateField(booking.id, 'payment_status', event.target.value)}
+                      className={cellInputClass}
+                    >
+                      <option value="">—</option>
+                      {PAYMENT_STATUSES.map((status) => (
+                        <option key={status} value={status}>{paymentLabel(t, status)}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="px-2 py-2 align-top">
+                    <div className="flex min-w-[7rem] flex-col gap-1">
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={fieldValue(booking, 'total_amount')}
+                        onChange={(event) => setDraft(booking.id, 'total_amount', event.target.value)}
+                        onBlur={() => void saveText(booking, 'total_amount')}
+                        className={cellInputClass}
+                      />
+                      <input
+                        type="text"
+                        maxLength={3}
+                        value={fieldValue(booking, 'currency')}
+                        onChange={(event) => setDraft(booking.id, 'currency', event.target.value.toUpperCase())}
+                        onBlur={() => void saveText(booking, 'currency')}
+                        placeholder="ILS"
+                        className={cellInputClass}
+                      />
+                      {booking.total_amount != null ? (
+                        <span className="text-xs text-muted">
+                          {formatMoney(Number(booking.total_amount), booking.currency || 'ILS', locale)}
+                        </span>
+                      ) : null}
+                    </div>
                   </td>
                   <td className="px-2 py-2">
                     <textarea
