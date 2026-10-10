@@ -354,39 +354,6 @@ function BookingEditor({
     timeZone,
   ]);
 
-  const persistField = async (field: EditableBookingField, value: string, original: string | null | undefined) => {
-    const normalized = value.trim();
-    const prior = (original ?? '').trim();
-    if (field === 'city') {
-      if (normalized === prior) return;
-    } else if (field === 'address') {
-      if (!normalized || normalized === prior) return;
-    } else if (normalized === prior) {
-      return;
-    }
-    try {
-      await onUpdateField(booking.id, field, field === 'comments' || field === 'technician_notes' ? value : normalized);
-      toast.success(t('fieldUpdated'));
-    } catch {
-      toast.error(t('updateError'));
-    }
-  };
-
-  const saveAppointment = async (silent = false) => {
-    const parsed = parseDisplayDateTime(appointmentDisplay);
-    if (!parsed) {
-      setAppointmentDisplay(formatAppointmentInZone(booking.appointment_start || booking.appointment_date, timeZone));
-      return false;
-    }
-    const iso = zonedTimeToUtc(parsed.date, parsed.time, timeZone).toISOString();
-    if (formatAppointmentInZone(iso, timeZone) === formatAppointmentInZone(booking.appointment_date, timeZone)) {
-      return false;
-    }
-    await onUpdateField(booking.id, 'appointment_date', iso);
-    if (!silent) toast.success(t('fieldUpdated'));
-    return true;
-  };
-
   const saveAll = async () => {
     if (!address.trim()) {
       toast.error(t('updateError'));
@@ -437,8 +404,10 @@ function BookingEditor({
 
       if (updates.length === 0) return;
 
-      await Promise.all(updates);
-      toast.success(t('save'));
+      for (const update of updates) {
+        await update;
+      }
+      toast.success(t('bookingDataSaved'));
       onClose();
     } catch {
       toast.error(t('updateError'));
@@ -451,30 +420,26 @@ function BookingEditor({
     <div className="space-y-4 text-sm">
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label={t('firstName')}>
-          <Input value={firstName} onChange={(event) => setFirstName(event.target.value)} onBlur={() => void persistField('first_name', firstName, booking.first_name)} />
+          <Input value={firstName} onChange={(event) => setFirstName(event.target.value)} />
         </Field>
         <Field label={t('lastName')}>
-          <Input value={lastName} onChange={(event) => setLastName(event.target.value)} onBlur={() => void persistField('last_name', lastName, booking.last_name)} />
+          <Input value={lastName} onChange={(event) => setLastName(event.target.value)} />
         </Field>
         <Field label={t('phone')}>
-          <Input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} onBlur={() => void persistField('phone', phone, booking.phone)} />
+          <Input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} />
         </Field>
         <Field label={t('email')}>
           <Input type="email" value={booking.email ?? ''} readOnly disabled className="opacity-70" />
         </Field>
         <Field label={t('city')}>
-          <Input value={city} maxLength={80} onChange={(event) => setCity(event.target.value)} onBlur={() => void persistField('city', city, booking.city)} />
+          <Input value={city} maxLength={80} onChange={(event) => setCity(event.target.value)} />
         </Field>
         <Field label={t('address')}>
-          <Input value={address} maxLength={200} dir="auto" onChange={(event) => setAddress(event.target.value)} onBlur={() => void persistField('address', address, booking.address)} />
+          <Input value={address} maxLength={200} dir="auto" onChange={(event) => setAddress(event.target.value)} />
         </Field>
       </div>
       <Field label={t('appointmentDate')} hint="dd/mm/yyyy HH:mm">
-        <Input
-          value={appointmentDisplay}
-          onChange={(event) => setAppointmentDisplay(event.target.value)}
-          onBlur={() => void saveAppointment(true).catch(() => toast.error(t('updateError')))}
-        />
+        <Input value={appointmentDisplay} onChange={(event) => setAppointmentDisplay(event.target.value)} />
       </Field>
       <Field label={t('operatingSystem')}>
         <Select value={operatingSystem} onChange={(event) => setOperatingSystem(event.target.value)}>
@@ -484,10 +449,10 @@ function BookingEditor({
         </Select>
       </Field>
       <Field label={t('comments')}>
-        <Textarea rows={2} value={comments} onChange={(event) => setComments(event.target.value)} onBlur={() => void persistField('comments', comments, booking.comments)} />
+        <Textarea rows={2} value={comments} onChange={(event) => setComments(event.target.value)} />
       </Field>
       <Field label={t('technicianNotes')}>
-        <Textarea rows={2} value={technicianNotes} onChange={(event) => setTechnicianNotes(event.target.value)} onBlur={() => void persistField('technician_notes', technicianNotes, booking.technician_notes)} />
+        <Textarea rows={2} value={technicianNotes} onChange={(event) => setTechnicianNotes(event.target.value)} />
       </Field>
 
       <div className="rounded-xl border border-line bg-canvas px-3 py-2 text-muted">
