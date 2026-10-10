@@ -76,6 +76,11 @@
     @apply text-center;
   }
 
+  .table-cols-center td.table-cell-text-start,
+  .table-cols-center td.table-cell-text-start .form-control {
+    text-align: start;
+  }
+
   .table-cols-center.table-data-start-2-6 td:nth-child(2),
   .table-cols-center.table-data-start-2-6 td:nth-child(6) {
     @apply text-start;

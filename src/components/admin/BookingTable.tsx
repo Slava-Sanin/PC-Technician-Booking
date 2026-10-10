@@ -271,7 +271,7 @@ export function BookingTable({
                       />
                     </td>
                   ))}
-                  <td className="px-2 py-2">
+                  <td className="table-cell-text-start px-2 py-2">
                     <input
                       type="email"
                       value={fieldValue(booking, 'email')}

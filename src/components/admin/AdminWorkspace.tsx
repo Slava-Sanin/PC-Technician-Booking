@@ -1396,7 +1396,7 @@ function StaffPanel({ isAdmin }: { isAdmin: boolean }) {
                       )}
                     </td>
                   ))}
-                  <td className="px-3 py-3 text-start font-medium">{row.email || row.user_id}</td>
+                  <td className="table-cell-text-start px-3 py-3 font-medium">{row.email || row.user_id}</td>
                   <td className="px-3 py-3">
                     {isAdmin && row.email ? (
                       <Select
