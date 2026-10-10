@@ -110,6 +110,7 @@ export function AdminWorkspace({
 
 function Dashboard({ bookings }: { bookings: Booking[] }) {
   const { t, i18n } = useTranslation();
+  const [mapBooking, setMapBooking] = useState<Booking | null>(null);
   const today = todayISOInTimeZone(BUSINESS_TIME_ZONE);
   const active = bookings.filter((booking) => !booking.deleted_at);
   const cards = [
@@ -146,14 +147,45 @@ function Dashboard({ bookings }: { bookings: Booking[] }) {
         <h2 className="font-semibold">{t('upcoming')}</h2>
         {upcoming.length === 0 ? <p className="mt-3 text-sm text-muted">{t('noBookings')}</p> : null}
         <ul className="mt-3 divide-y divide-line">
-          {upcoming.map((booking) => (
-            <li key={booking.id} className="flex items-center justify-between gap-3 py-3 text-sm">
-              <span className="inline-flex flex-wrap items-center">{booking.booking_number}<DotSep />{booking.first_name} {booking.last_name}</span>
-              <span className="text-muted">{formatAppointmentInZone(booking.appointment_start || booking.appointment_date, BUSINESS_TIME_ZONE)}</span>
-            </li>
-          ))}
+          {upcoming.map((booking) => {
+            const location = formatBookingLocation(booking.city, booking.address);
+            return (
+              <li key={booking.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
+                <span className="inline-flex min-w-0 flex-wrap items-center">
+                  {booking.booking_number}
+                  <DotSep />
+                  {booking.first_name} {booking.last_name}
+                  {location ? (
+                    <>
+                      <DotSep />
+                      <span className="text-muted" dir="auto">
+                        {location}
+                      </span>
+                      <button
+                        type="button"
+                        className="ms-1 inline-flex shrink-0 items-center justify-center rounded-lg p-1 text-primary hover:bg-highlight"
+                        aria-label={t('map_show_booking')}
+                        title={t('map_show_booking')}
+                        onClick={() => setMapBooking(booking)}
+                      >
+                        <MapPin className="h-5 w-5" aria-hidden />
+                      </button>
+                    </>
+                  ) : null}
+                </span>
+                <span className="shrink-0 text-muted">
+                  {formatAppointmentInZone(booking.appointment_start || booking.appointment_date, BUSINESS_TIME_ZONE)}
+                </span>
+              </li>
+            );
+          })}
         </ul>
       </Card>
+      {mapBooking ? (
+        <Suspense fallback={null}>
+          <BookingAddressMapModal booking={mapBooking} onClose={() => setMapBooking(null)} />
+        </Suspense>
+      ) : null}
     </div>
   );
 }

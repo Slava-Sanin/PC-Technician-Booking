@@ -109,7 +109,7 @@ const resources = {
       configLoadError: 'Не удалось загрузить расписание. Попробуйте ещё раз.',
       noAvailableSlots: 'На эту дату нет свободного времени',
       noBookings: 'Заявок нет',
-      showDeleted: 'Показать удалённые',
+      showDeleted: 'Показать удалённые заявки',
       hideDeleted: 'Скрыть удалённые',
       filterStatus: 'Фильтр по статусу',
       allStatuses: 'Все статусы',

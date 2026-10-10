@@ -155,10 +155,10 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="max-h-[92vh] w-full overflow-y-auto rounded-t-2xl bg-surface p-5 shadow-card sm:max-w-2xl sm:rounded-2xl"
+        className="flex max-h-[92vh] w-full flex-col overflow-hidden rounded-t-2xl bg-surface shadow-card sm:max-w-2xl sm:rounded-2xl"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex shrink-0 items-center justify-between gap-3 p-5 pb-0">
           <h2 className="text-lg font-semibold text-ink">{title}</h2>
           <button
             type="button"
@@ -169,7 +169,7 @@ export function Modal({
             ×
           </button>
         </div>
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto p-5 pt-4">{children}</div>
       </div>
     </div>
   );
