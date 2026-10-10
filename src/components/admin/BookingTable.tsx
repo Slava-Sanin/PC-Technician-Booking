@@ -32,8 +32,8 @@ const STATUS_CLASS: Record<BookingStatus, string> = {
   pending_payment: 'bg-amber-50 text-amber-800',
   confirmed: 'bg-amber-50 text-amber-800',
   assigned: 'bg-amber-50 text-amber-800',
-  on_the_way: 'bg-blue-50 text-blue-700',
-  in_progress: 'bg-blue-50 text-blue-700',
+  on_the_way: 'bg-highlight text-primary',
+  in_progress: 'bg-highlight text-primary',
   waiting_for_parts: 'bg-amber-50 text-amber-800',
   waiting_for_customer: 'bg-amber-50 text-amber-800',
   completed: 'bg-green-50 text-green-700',
@@ -147,10 +147,10 @@ export function BookingTable({ bookings, timeZone, onUpdateField, onUpdateStatus
     });
   };
 
-  const headClass = 'px-1 py-1 text-xs uppercase tracking-wider hover:bg-slate-200/60';
+  const headClass = 'px-1 py-1 text-xs uppercase tracking-wider hover:bg-highlight/80';
 
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
+    <div className="bg-surface rounded-lg shadow overflow-hidden">
       <div className="overflow-x-auto">
         <table className="table-cols-center w-full">
           <thead>
@@ -170,14 +170,14 @@ export function BookingTable({ bookings, timeZone, onUpdateField, onUpdateStatus
               <TableHead label={t('actions')} className={headClass} />
             </tr>
           </thead>
-          <tbody className="bg-white">
+          <tbody className="bg-surface">
             {sorted.length === 0 && (
               <tr>
                 <td colSpan={13} className="px-4 py-8 text-center text-sm text-gray-500">{t('noBookings')}</td>
               </tr>
             )}
             {sorted.map((booking, index) => (
-              <tr key={booking.id} className={`hover:bg-gray-50 ${booking.deleted_at ? 'opacity-60' : ''}`}>
+              <tr key={booking.id} className={`hover:bg-highlight/50 ${booking.deleted_at ? 'opacity-60' : ''}`}>
                 <td className="px-1 py-1 text-sm text-gray-800 font-semibold">{index + 1}</td>
                 <td className="px-1 py-1 text-sm text-gray-800 font-medium">{booking.booking_number}</td>
                 <td className="px-1 py-1">

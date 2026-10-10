@@ -9,8 +9,8 @@ export function Button({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'ghost' | 'danger' }) {
   const styles = {
-    primary: 'bg-primary text-white hover:bg-blue-700',
-    secondary: 'bg-secondary text-white hover:bg-teal-800',
+    primary: 'bg-primary text-white hover:bg-primaryDark',
+    secondary: 'bg-secondary text-white hover:bg-secondaryDark',
     ghost: 'bg-surface text-ink border border-line hover:bg-canvas',
     danger: 'bg-danger text-white hover:bg-red-700',
   }[variant];
@@ -76,7 +76,7 @@ export function Switch({
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
-      className={`relative h-7 w-12 rounded-full transition ${checked ? 'bg-primary' : 'bg-slate-300'}`}
+      className={`relative h-7 w-12 rounded-full transition ${checked ? 'bg-primary' : 'bg-line'}`}
     >
       <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition ${checked ? 'end-0.5' : 'start-0.5'}`} />
     </button>
@@ -89,18 +89,18 @@ export function Card({ children, className = '' }: { children: ReactNode; classN
 
 export function Badge({ children, tone = 'neutral' }: { children: ReactNode; tone?: 'neutral' | 'success' | 'warning' | 'danger' | 'info' }) {
   const styles = {
-    neutral: 'bg-slate-100 text-slate-700',
+    neutral: 'bg-highlight text-ink',
     success: 'bg-green-50 text-success',
     warning: 'bg-amber-50 text-amber-700',
     danger: 'bg-red-50 text-danger',
-    info: 'bg-blue-50 text-primary',
+    info: 'bg-highlight text-primary',
   }[tone];
   return <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ${styles}`}>{children}</span>;
 }
 
 export function Alert({ children, tone = 'info' }: { children: ReactNode; tone?: 'info' | 'danger' | 'warning' }) {
   const styles = {
-    info: 'border-blue-100 bg-blue-50 text-blue-900',
+    info: 'border-highlightLine bg-highlight text-ink',
     danger: 'border-red-100 bg-red-50 text-red-900',
     warning: 'border-amber-100 bg-amber-50 text-amber-900',
   }[tone];
@@ -117,7 +117,7 @@ export function EmptyState({ title, body }: { title: string; body?: string }) {
 }
 
 export function Skeleton({ className = '' }: { className?: string }) {
-  return <div className={`animate-pulse rounded-xl bg-slate-200 ${className}`} />;
+  return <div className={`animate-pulse rounded-xl bg-line ${className}`} />;
 }
 
 /** Visually prominent separator between inline text fragments (flex row with items-center). */
@@ -127,7 +127,7 @@ export function DotSep({ className = '' }: { className?: string }) {
       className={`mx-2 inline-flex shrink-0 items-center justify-center self-center ${className}`}
       aria-hidden
     >
-      <span className="size-1.5 rounded-full bg-slate-400 sm:size-2" />
+      <span className="size-1.5 rounded-full bg-muted/60 sm:size-2" />
     </span>
   );
 }

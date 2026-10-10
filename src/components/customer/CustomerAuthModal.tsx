@@ -166,7 +166,7 @@ export function CustomerAuthModal({
 
         {mode === 'verify' ? (
           <form className="space-y-3" onSubmit={(event) => void handleRegisterVerify(event)}>
-            {linkStaffAuth ? <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-ink">{t('customerRegisterStaffLinkVerifyHint')}</p> : null}
+            {linkStaffAuth ? <p className="rounded-lg bg-highlight px-3 py-2 text-xs text-ink">{t('customerRegisterStaffLinkVerifyHint')}</p> : null}
             <p className="text-sm text-muted">{t('verificationCodeSent', { target: maskedTarget })}</p>
             <Field label={t('verificationCode')} controlClassName="max-w-[9rem]">
               <Input

@@ -4,14 +4,14 @@
 
 @layer base {
   body {
-    background: #F8FAFC;
-    color: #0F172A;
+    background: #D9CFC0;
+    color: #292524;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
 
   :focus-visible {
-    outline: 2px solid #2563EB;
+    outline: 2px solid #735740;
     outline-offset: 2px;
   }
 
@@ -54,7 +54,7 @@
   }
 
   .admin-sector-heading {
-    @apply -mx-3 -mt-3 mb-3 rounded-t-xl border-b border-blue-100 bg-blue-50 px-3 py-2 text-center text-sm font-semibold text-primary;
+    @apply -mx-3 -mt-3 mb-3 rounded-t-xl border-b border-highlightLine bg-highlight px-3 py-2 text-center text-sm font-semibold text-ink;
   }
 
   .header-action-sector {
@@ -84,7 +84,7 @@
   .form-control:focus,
   .form-control:focus-visible {
     @apply border-primary outline-none ring-0;
-    box-shadow: inset 0 0 0 1px #2563eb;
+    box-shadow: inset 0 0 0 1px #735740;
   }
 
   .form-control-select {

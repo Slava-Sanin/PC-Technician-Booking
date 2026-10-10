@@ -140,7 +140,7 @@ function MonthGrid({
               type="button"
               disabled={isDisabled}
               onClick={() => onSelect(iso)}
-              className={`h-8 rounded-md text-xs font-medium ${isSelected ? 'bg-primary text-white' : 'hover:bg-blue-50'} disabled:cursor-not-allowed disabled:text-slate-300`}
+              className={`h-8 rounded-md text-xs font-medium ${isSelected ? 'bg-primary text-white' : 'hover:bg-highlight'} disabled:cursor-not-allowed disabled:text-muted/50`}
             >
               {index + 1}
             </button>
@@ -526,7 +526,7 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
                 >
                   <h3
                     id="booking-categories-heading"
-                    className="border-b border-blue-100 bg-blue-50 px-3 py-2 text-sm font-semibold text-primary"
+                    className="border-b border-highlightLine bg-highlight px-3 py-2 text-sm font-semibold text-ink"
                   >
                     {t('nav_categories')}
                   </h3>
@@ -541,10 +541,10 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
                           key={category.id}
                           type="button"
                           onClick={() => setCategoryId(category.id)}
-                          className={`rounded-2xl border p-4 text-start transition ${active ? 'border-primary bg-blue-50' : 'border-line hover:border-primary/40'}`}
+                          className={`rounded-2xl border p-4 text-start transition ${active ? 'border-primary bg-highlight' : 'border-line hover:border-primary/40'}`}
                         >
                           <span className="flex items-center gap-2.5">
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white text-primary">
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-surface text-ink">
                               <CatalogIcon name={category.icon} />
                             </span>
                             <span className="min-w-0 font-semibold leading-snug text-ink">{localized(category.name, locale)}</span>
@@ -561,7 +561,7 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
                 >
                   <h3
                     id="booking-services-heading"
-                    className="shrink-0 border-b border-blue-100 bg-blue-50 px-3 py-2 text-sm font-semibold text-primary"
+                    className="shrink-0 border-b border-highlightLine bg-highlight px-3 py-2 text-sm font-semibold text-ink"
                   >
                     {activeCategory
                       ? t('servicesOfCategory', { name: localized(activeCategory.name, locale) })
@@ -576,7 +576,7 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
                         type="button"
                         onClick={() => toggleService(service.id)}
                         aria-pressed={checked}
-                        className={`flex items-center justify-between gap-2 rounded-xl border px-2.5 py-2 text-start ${checked ? 'border-primary bg-blue-50' : 'border-line hover:border-primary/40'}`}
+                        className={`flex items-center justify-between gap-2 rounded-xl border px-2.5 py-2 text-start ${checked ? 'border-primary bg-highlight' : 'border-line hover:border-primary/40'}`}
                       >
                         <span className="min-w-0">
                           <span className="block text-sm font-semibold leading-tight">{localized(service.name, locale)}</span>
@@ -597,8 +597,8 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
                 {modes.map((item) => {
                   const Icon = MODE_ICON[item];
                   return (
-                    <button key={item} type="button" onClick={() => { setMode(item); setDate(''); setTime(''); }} className={`flex items-center gap-2 rounded-xl border p-2.5 text-start ${mode === item ? 'border-primary bg-blue-50' : 'border-line'}`}>
-                      <Icon className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                    <button key={item} type="button" onClick={() => { setMode(item); setDate(''); setTime(''); }} className={`flex items-center gap-2 rounded-xl border p-2.5 text-start ${mode === item ? 'border-primary bg-highlight' : 'border-line'}`}>
+                      <Icon className="h-4 w-4 shrink-0 text-ink" aria-hidden="true" />
                       <span className="text-sm font-semibold">{t(`mode_${item}`)}</span>
                     </button>
                   );
@@ -684,7 +684,7 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
                 <p className="text-xs text-muted">{payMode === 'required' ? t('paymentRequiredHint') : t('paymentOptionalHint')}</p>
                 {methods.length === 0 ? <Alert tone="warning">{t('noPaymentMethods')}</Alert> : null}
                 {methods.map((method) => (
-                  <button key={method.code} type="button" onClick={() => setPaymentCode(method.code)} className={`block w-full rounded-xl border p-2.5 text-start ${paymentCode === method.code ? 'border-primary bg-blue-50' : 'border-line'}`}>
+                  <button key={method.code} type="button" onClick={() => setPaymentCode(method.code)} className={`block w-full rounded-xl border p-2.5 text-start ${paymentCode === method.code ? 'border-primary bg-highlight' : 'border-line'}`}>
                     <span className="text-sm font-semibold">{localized(method.name, locale)}</span>
                     <span className="mt-0.5 block text-xs text-muted">{localized(method.instructions, locale)}</span>
                   </button>
@@ -790,7 +790,7 @@ function Summary({
   const { t } = useTranslation();
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-      <h2 className="shrink-0 border-b border-blue-100 bg-blue-50 px-3 py-2 text-sm font-semibold text-primary">{t('summary')}</h2>
+      <h2 className="shrink-0 border-b border-highlightLine bg-highlight px-3 py-2 text-sm font-semibold text-ink">{t('summary')}</h2>
       <div className="p-3">
       <ul className="space-y-1 text-xs">
         {selected.length === 0 ? <li className="text-muted">{t('noneSelected')}</li> : null}
@@ -812,7 +812,7 @@ function Summary({
 function Row({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   if (highlight) {
     return (
-      <div className="-mx-0.5 my-1 flex items-center justify-between gap-3 rounded-lg border border-blue-100 bg-blue-50 px-2 py-1.5">
+      <div className="-mx-0.5 my-1 flex items-center justify-between gap-3 rounded-lg border border-highlightLine bg-highlight px-2 py-1.5">
         <dt className="text-sm font-bold text-ink">{label}</dt>
         <dd className="text-sm font-bold text-primary">{value}</dd>
       </div>

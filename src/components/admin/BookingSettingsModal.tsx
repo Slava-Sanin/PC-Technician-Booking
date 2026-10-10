@@ -52,8 +52,8 @@ export function BookingSettingsModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center relative">
+      <div className="bg-surface rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-surface border-b px-6 py-4 flex items-center relative">
           <h3 className="text-xl font-bold flex-1 text-center">{t('settings')}</h3>
           <button type="button" onClick={onClose} className="text-gray-500 hover:text-gray-700 absolute end-6">
             <X className="w-6 h-6" />
@@ -65,11 +65,11 @@ export function BookingSettingsModal({
           {!canEdit && <p className="text-sm text-amber-700">{t('settingsReadOnly')}</p>}
 
           {legacyAvailable && canEdit && (
-            <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+            <div className="rounded-md border border-highlightLine bg-highlight p-3 text-sm text-ink">
               <p>{t('importLocalSettingsHint')}</p>
               <button
                 type="button"
-                className="mt-2 px-3 py-1 bg-blue-600 text-white rounded-md"
+                className="mt-2 px-3 py-1 bg-primary text-white rounded-md hover:bg-primaryDark"
                 onClick={() => {
                   const imported = onImportLegacy();
                   if (imported) setDraft(imported);
@@ -82,7 +82,7 @@ export function BookingSettingsModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">{t('timezoneLabel')}</label>
-            <input value={draft.timezone} readOnly className="w-full rounded-md border border-gray-300 px-3 py-2 bg-gray-50" />
+            <input value={draft.timezone} readOnly className="w-full rounded-md border border-line px-3 py-2 bg-canvas" />
           </div>
 
           <div>
@@ -150,7 +150,7 @@ export function BookingSettingsModal({
                 type="button"
                 disabled={!canEdit}
                 onClick={() => update({ disabledDates: [...draft.disabledDates, todayISOInTimeZone(draft.timezone || BUSINESS_TIME_ZONE)] })}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                className="w-full px-4 py-2 bg-primary text-white rounded-md hover:bg-primaryDark disabled:opacity-50"
               >
                 {t('addDate')}
               </button>
@@ -240,7 +240,7 @@ export function BookingSettingsModal({
                 type="button"
                 disabled={saving}
                 onClick={() => void handleSave()}
-                className="rounded-md bg-blue-600 px-6 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
+                className="rounded-md bg-primary px-6 py-2 text-white hover:bg-primaryDark disabled:opacity-50"
               >
                 {saving ? t('saving') : t('saveSettings')}
               </button>

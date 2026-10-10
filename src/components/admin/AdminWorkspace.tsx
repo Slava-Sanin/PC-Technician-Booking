@@ -236,7 +236,7 @@ function BookingsPanel({ state }: { state: ReturnType<typeof useBookings> }) {
                   <span dir="auto">{location}</span>
                   <button
                     type="button"
-                    className="ms-1 inline-flex shrink-0 items-center justify-center rounded-lg p-1 text-primary hover:bg-blue-50"
+                    className="ms-1 inline-flex shrink-0 items-center justify-center rounded-lg p-1 text-primary hover:bg-highlight"
                     aria-label={t('map_show_booking')}
                     title={t('map_show_booking')}
                     onClick={(event) => {
