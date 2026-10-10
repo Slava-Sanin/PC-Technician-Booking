@@ -119,7 +119,7 @@ export function CustomerAuthModal({
           <button
             type="button"
             onClick={onClose}
-            className="absolute end-0 inline-flex h-11 w-11 shrink-0 items-center justify-center text-3xl font-bold leading-none text-danger"
+            className="absolute end-0 inline-flex h-11 w-11 shrink-0 items-center justify-center text-3xl font-bold leading-none text-muted transition hover:text-ink"
             aria-label={t('close')}
           >
             ×

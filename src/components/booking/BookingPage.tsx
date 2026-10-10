@@ -19,6 +19,7 @@ import {
   Shield,
   Wrench,
   Wifi,
+  X,
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { Alert, Badge, Button, Card, EmptyState, Field, Input, ModalFooter, Select, Skeleton, Textarea } from '../ui';
@@ -452,6 +453,44 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
     return Array.isArray(slots) && slots.length === 0;
   };
 
+  const startNewBooking = () => {
+    setResult(null);
+    setStep(0);
+    setSelectedIds([]);
+    setMode('');
+    setDeviceType('');
+    setOperatingSystem('');
+    setDeviceBrand('');
+    setDeviceModel('');
+    setProblem('');
+    setCity('');
+    setAddress('');
+    setComments('');
+    setDate('');
+    setTime('');
+    setPaymentCode('');
+    setConfirmationId('');
+    setConfirmationTarget('');
+    setVerificationCode('');
+    setCodeSent(false);
+    setConfirmChannel('email');
+    setCategoryId(categories[0]?.id ?? null);
+    if (customer) {
+      setFirstName(customer.firstName);
+      setLastName(customer.lastName);
+      setPhone(customer.phone ?? '');
+      setEmail(customer.email ?? '');
+    } else {
+      setFirstName('');
+      setLastName('');
+      setPhone('');
+      setEmail('');
+    }
+    if (config) {
+      setVisibleMonth(calendarDateFromISO(todayISOInTimeZone(config.timezone)));
+    }
+  };
+
   if (result) {
     return (
       <Shell
@@ -464,7 +503,15 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
         onLogoutCustomer={() => void handleLogoutCustomer()}
         onLogoutStaff={() => void handleLogoutStaff()}
       >
-        <Card className="mx-auto max-w-xl p-6">
+        <Card className="relative mx-auto max-w-xl p-6 pe-14">
+          <button
+            type="button"
+            onClick={startNewBooking}
+            className="absolute end-3 top-3 inline-flex h-10 w-10 items-center justify-center rounded-lg text-muted transition hover:bg-highlight hover:text-ink"
+            aria-label={t('close')}
+          >
+            <X className="h-5 w-5" strokeWidth={2.25} aria-hidden />
+          </button>
           <Badge tone="success">{t('bookingConfirmed')}</Badge>
           <h1 className="mt-3 text-2xl font-semibold">{t('bookingSuccess')}</h1>
           <p className="mt-2 text-muted">{t('bookingNumber')}</p>
