@@ -1,17 +1,25 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { MapPin, Trash2 } from 'lucide-react';
 import { useConfirm } from '../ui/ConfirmProvider';
-import { Trash2 } from 'lucide-react';
+import { AppointmentDateTimeField } from '../schedule/AppointmentDateTimeField';
 import { compareSortValues, SortableTableHead, TableHead, toggleSortState } from './sortableTableHead';
 import { BOOKING_STATUSES, type Booking, type BookingStatus, type EditableBookingField } from '../../types/booking';
+import type { PublicBookingConfig } from '../../types/bookingSettings';
+import { localized } from '../../types/catalog';
 import { formatAppointmentInZone, parseDisplayDateTime, zonedTimeToUtc } from '../../utils/dateTime';
+import { formatMoney } from '../../utils/pricing';
 
 interface BookingTableProps {
   bookings: Booking[];
   timeZone: string;
+  scheduleConfig: PublicBookingConfig | null;
+  locale: string;
   onUpdateField: (id: string, field: EditableBookingField, value: string) => Promise<void>;
   onUpdateStatus: (id: string, status: BookingStatus) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onOpenBooking: (booking: Booking) => void;
+  onShowMap: (booking: Booking) => void;
 }
 
 type SortColumn =
@@ -21,9 +29,13 @@ type SortColumn =
   | 'first_name'
   | 'last_name'
   | 'phone'
+  | 'email'
   | 'city'
   | 'address'
+  | 'service_mode'
   | 'operating_system'
+  | 'payment_status'
+  | 'total_amount'
   | 'comments'
   | 'technician_notes';
 
@@ -43,18 +55,48 @@ const STATUS_CLASS: Record<BookingStatus, string> = {
 };
 
 function sortValue(booking: Booking, column: SortColumn): string | number {
-  if (column === 'appointment_date') return new Date(booking.appointment_date).getTime();
-  const value = booking[column];
+  if (column === 'appointment_date') return new Date(booking.appointment_start || booking.appointment_date).getTime();
+  if (column === 'total_amount') return Number(booking.total_amount ?? 0);
+  if (column === 'email') return (booking.email ?? '').toLowerCase();
+  if (column === 'service_mode') return (booking.service_mode ?? '').toLowerCase();
+  if (column === 'payment_status') return (booking.payment_status ?? '').toLowerCase();
+  const value = booking[column as keyof Booking];
   return (value ?? '').toString().toLowerCase();
 }
 
-export function BookingTable({ bookings, timeZone, onUpdateField, onUpdateStatus, onDelete }: BookingTableProps) {
+function serviceSummary(booking: Booking, locale: string): string {
+  return (booking.booking_services ?? [])
+    .map((line) => localized(line.service_name_snapshot, locale))
+    .join(', ');
+}
+
+function deviceSummary(booking: Booking): string {
+  return [booking.device_type, booking.device_brand, booking.device_model].filter(Boolean).join(' ');
+}
+
+function paymentLabel(t: (key: string) => string, status: string | null): string {
+  if (!status) return '—';
+  const key = `pay_${status}`;
+  const translated = t(key);
+  return translated === key ? status : translated;
+}
+
+export function BookingTable({
+  bookings,
+  timeZone,
+  scheduleConfig,
+  locale,
+  onUpdateField,
+  onUpdateStatus,
+  onDelete,
+  onOpenBooking,
+  onShowMap,
+}: BookingTableProps) {
   const confirm = useConfirm();
   const { t } = useTranslation();
   const [sortColumn, setSortColumn] = useState<SortColumn>('appointment_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [drafts, setDrafts] = useState<Record<string, Partial<Record<EditableBookingField, string>>>>({});
-  const [appointmentDrafts, setAppointmentDrafts] = useState<Record<string, string>>({});
 
   const requestDelete = async (bookingId: string) => {
     const ok = await confirm({
@@ -116,43 +158,29 @@ export function BookingTable({ bookings, timeZone, onUpdateField, onUpdateStatus
     clearDraft(booking.id, field);
   };
 
-  const saveAppointment = async (booking: Booking) => {
-    const draft = appointmentDrafts[booking.id];
-    if (draft === undefined) return;
-    const parsed = parseDisplayDateTime(draft);
-    if (!parsed) {
-      setAppointmentDrafts((current) => {
-        const next = { ...current };
-        delete next[booking.id];
-        return next;
-      });
-      return;
-    }
+  const commitAppointment = async (booking: Booking, display: string) => {
+    const parsed = parseDisplayDateTime(display);
+    if (!parsed) return;
 
     const iso = zonedTimeToUtc(parsed.date, parsed.time, timeZone).toISOString();
-    if (formatAppointmentInZone(iso, timeZone) === formatAppointmentInZone(booking.appointment_date, timeZone)) {
-      setAppointmentDrafts((current) => {
-        const next = { ...current };
-        delete next[booking.id];
-        return next;
-      });
+    if (
+      formatAppointmentInZone(iso, timeZone)
+      === formatAppointmentInZone(booking.appointment_start || booking.appointment_date, timeZone)
+    ) {
       return;
     }
 
     await onUpdateField(booking.id, 'appointment_date', iso);
-    setAppointmentDrafts((current) => {
-      const next = { ...current };
-      delete next[booking.id];
-      return next;
-    });
   };
 
-  const headClass = 'px-1 py-1 text-xs uppercase tracking-wider hover:bg-highlight/80';
+  const headClass = 'px-2 py-2 text-xs uppercase tracking-wider whitespace-nowrap';
+  const cellInputClass = 'form-control min-w-[7rem] py-1 text-sm';
+  const columnCount = 20;
 
   return (
-    <div className="bg-surface rounded-lg shadow overflow-hidden">
+    <div className="overflow-hidden rounded-lg bg-surface shadow">
       <div className="overflow-x-auto">
-        <table className="table-cols-center w-full">
+        <table className="table-cols-center min-w-full text-sm">
           <thead>
             <tr>
               <TableHead label="#" className={headClass} />
@@ -161,10 +189,17 @@ export function BookingTable({ bookings, timeZone, onUpdateField, onUpdateStatus
               <SortableTableHead column="appointment_date" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('appointmentDate')} className={headClass} />
               <SortableTableHead column="first_name" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('firstName')} className={headClass} />
               <SortableTableHead column="last_name" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('lastName')} className={headClass} />
-              <SortableTableHead column="phone" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('phone')} className={`${headClass} w-32`} />
+              <SortableTableHead column="phone" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('phone')} className={headClass} />
+              <SortableTableHead column="email" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('email')} className={headClass} />
               <SortableTableHead column="city" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('city')} className={headClass} />
               <SortableTableHead column="address" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('address')} className={headClass} />
+              <SortableTableHead column="service_mode" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('step_mode')} className={headClass} />
               <SortableTableHead column="operating_system" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('operatingSystem')} className={headClass} />
+              <TableHead label={t('deviceType')} className={headClass} />
+              <TableHead label={t('problemDescription')} className={headClass} />
+              <TableHead label={t('nav_services')} className={headClass} />
+              <SortableTableHead column="payment_status" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('payment')} className={headClass} />
+              <SortableTableHead column="total_amount" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('total')} className={headClass} />
               <SortableTableHead column="comments" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('comments')} className={headClass} />
               <SortableTableHead column="technician_notes" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('technicianNotes')} className={headClass} />
               <TableHead label={t('actions')} className={headClass} />
@@ -173,87 +208,138 @@ export function BookingTable({ bookings, timeZone, onUpdateField, onUpdateStatus
           <tbody className="bg-surface">
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={13} className="px-4 py-8 text-center text-sm text-gray-500">{t('noBookings')}</td>
+                <td colSpan={columnCount} className="px-4 py-8 text-center text-sm text-muted">{t('noBookings')}</td>
               </tr>
             )}
-            {sorted.map((booking, index) => (
-              <tr key={booking.id} className={`hover:bg-highlight/50 ${booking.deleted_at ? 'opacity-60' : ''}`}>
-                <td className="px-1 py-1 text-sm text-gray-800 font-semibold">{index + 1}</td>
-                <td className="px-1 py-1 text-sm text-gray-800 font-medium">{booking.booking_number}</td>
-                <td className="px-1 py-1">
-                  <select
-                    value={booking.status}
-                    onChange={(event) => void onUpdateStatus(booking.id, event.target.value as BookingStatus)}
-                    className={`text-xs font-medium border rounded px-1 py-1 w-full ${STATUS_CLASS[booking.status]}`}
-                  >
-                    {BOOKING_STATUSES.map((status) => (
-                      <option key={status} value={status}>{t(`status_${status}`)}</option>
-                    ))}
-                  </select>
-                </td>
-                <td className="px-1 py-1">
-                  <input
-                    type="text"
-                    value={appointmentDrafts[booking.id] ?? formatAppointmentInZone(booking.appointment_date, timeZone)}
-                    onChange={(event) => setAppointmentDrafts((current) => ({ ...current, [booking.id]: event.target.value }))}
-                    onBlur={() => void saveAppointment(booking)}
-                    placeholder="dd/mm/yyyy HH:mm"
-                    className="text-sm border rounded px-1 py-1 w-full text-gray-800"
-                  />
-                </td>
-                {(['first_name', 'last_name', 'phone', 'city', 'address'] as const).map((field) => (
-                  <td key={field} className="px-1 py-1">
-                    <input
-                      type={field === 'phone' ? 'tel' : 'text'}
-                      value={fieldValue(booking, field)}
-                      onChange={(event) => setDraft(booking.id, field, event.target.value)}
-                      onBlur={() => void saveText(booking, field)}
-                      className="text-sm border rounded px-1 py-1 w-full text-gray-800"
+            {sorted.map((booking, index) => {
+              const location = [booking.city, booking.address].filter(Boolean).join(', ');
+              return (
+                <tr key={booking.id} className={`hover:bg-highlight/50 ${booking.deleted_at ? 'opacity-60' : ''}`}>
+                  <td className="px-2 py-2 font-semibold text-ink">{index + 1}</td>
+                  <td className="px-2 py-2">
+                    <button
+                      type="button"
+                      className="font-medium text-primary hover:underline"
+                      onClick={() => onOpenBooking(booking)}
+                    >
+                      {booking.booking_number}
+                    </button>
+                  </td>
+                  <td className="min-w-[8rem] px-2 py-2">
+                    <select
+                      value={booking.status}
+                      onChange={(event) => void onUpdateStatus(booking.id, event.target.value as BookingStatus)}
+                      className={`w-full rounded border px-1 py-1 text-xs font-medium ${STATUS_CLASS[booking.status]}`}
+                    >
+                      {BOOKING_STATUSES.map((status) => (
+                        <option key={status} value={status}>{t(`status_${status}`)}</option>
+                      ))}
+                    </select>
+                  </td>
+                  <td className="min-w-[12rem] px-2 py-2 align-top">
+                    <AppointmentDateTimeField
+                      value={formatAppointmentInZone(booking.appointment_start || booking.appointment_date, timeZone)}
+                      onChange={(display) => void commitAppointment(booking, display)}
+                      booking={booking}
+                      scheduleConfig={scheduleConfig}
+                      timeZone={timeZone}
                     />
                   </td>
-                ))}
-                <td className="px-1 py-1">
-                  <select
-                    value={booking.operating_system}
-                    onChange={(event) => void onUpdateField(booking.id, 'operating_system', event.target.value)}
-                    className="text-sm border rounded px-1 py-1 w-full text-gray-800"
-                  >
-                    <option value="windows">{t('windows')}</option>
-                    <option value="linux">{t('linux')}</option>
-                    <option value="macos">{t('macos')}</option>
-                  </select>
-                </td>
-                <td className="px-1 py-1">
-                  <textarea
-                    value={fieldValue(booking, 'comments')}
-                    onChange={(event) => setDraft(booking.id, 'comments', event.target.value)}
-                    onBlur={() => void saveText(booking, 'comments')}
-                    rows={2}
-                    className="text-sm border rounded px-1 py-1 w-full text-gray-800"
-                  />
-                </td>
-                <td className="px-1 py-1">
-                  <textarea
-                    value={fieldValue(booking, 'technician_notes')}
-                    onChange={(event) => setDraft(booking.id, 'technician_notes', event.target.value)}
-                    onBlur={() => void saveText(booking, 'technician_notes')}
-                    rows={2}
-                    placeholder={t('addNote')}
-                    className="text-sm border rounded px-1 py-1 w-full text-gray-800"
-                  />
-                </td>
-                <td className="px-1 py-1">
-                  <button
-                    type="button"
-                    onClick={() => void requestDelete(booking.id)}
-                    className="inline-flex items-center justify-center px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
-                    title={t('delete')}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
+                  {(['first_name', 'last_name', 'phone'] as const).map((field) => (
+                    <td key={field} className="px-2 py-2">
+                      <input
+                        type={field === 'phone' ? 'tel' : 'text'}
+                        value={fieldValue(booking, field)}
+                        onChange={(event) => setDraft(booking.id, field, event.target.value)}
+                        onBlur={() => void saveText(booking, field)}
+                        className={cellInputClass}
+                      />
+                    </td>
+                  ))}
+                  <td className="px-2 py-2 text-muted">{booking.email ?? '—'}</td>
+                  <td className="px-2 py-2">
+                    <input
+                      type="text"
+                      value={fieldValue(booking, 'city')}
+                      onChange={(event) => setDraft(booking.id, 'city', event.target.value)}
+                      onBlur={() => void saveText(booking, 'city')}
+                      className={cellInputClass}
+                    />
+                  </td>
+                  <td className="min-w-[10rem] px-2 py-2">
+                    <div className="flex items-start gap-1">
+                      <input
+                        type="text"
+                        dir="auto"
+                        value={fieldValue(booking, 'address')}
+                        onChange={(event) => setDraft(booking.id, 'address', event.target.value)}
+                        onBlur={() => void saveText(booking, 'address')}
+                        className={`min-w-[8rem] flex-1 ${cellInputClass}`}
+                      />
+                      {location ? (
+                        <button
+                          type="button"
+                          className="inline-flex shrink-0 rounded-lg p-1.5 text-primary hover:bg-highlight"
+                          aria-label={t('map_show_booking')}
+                          title={t('map_show_booking')}
+                          onClick={() => onShowMap(booking)}
+                        >
+                          <MapPin className="h-4 w-4" aria-hidden />
+                        </button>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td className="px-2 py-2 whitespace-nowrap text-ink">{t(`mode_${booking.service_mode ?? 'onsite'}`)}</td>
+                  <td className="px-2 py-2">
+                    <select
+                      value={booking.operating_system}
+                      onChange={(event) => void onUpdateField(booking.id, 'operating_system', event.target.value)}
+                      className={cellInputClass}
+                    >
+                      <option value="windows">{t('windows')}</option>
+                      <option value="linux">{t('linux')}</option>
+                      <option value="macos">{t('macos')}</option>
+                    </select>
+                  </td>
+                  <td className="max-w-[10rem] px-2 py-2 text-xs text-ink" dir="auto">{deviceSummary(booking) || '—'}</td>
+                  <td className="max-w-[12rem] px-2 py-2 text-xs text-muted" dir="auto">{booking.problem_description ?? '—'}</td>
+                  <td className="max-w-[14rem] px-2 py-2 text-xs text-ink">{serviceSummary(booking, locale) || '—'}</td>
+                  <td className="px-2 py-2 whitespace-nowrap text-ink">{paymentLabel(t, booking.payment_status)}</td>
+                  <td className="px-2 py-2 whitespace-nowrap font-medium text-ink">
+                    {booking.total_amount == null ? '—' : formatMoney(Number(booking.total_amount), booking.currency || 'ILS', locale)}
+                  </td>
+                  <td className="px-2 py-2">
+                    <textarea
+                      value={fieldValue(booking, 'comments')}
+                      onChange={(event) => setDraft(booking.id, 'comments', event.target.value)}
+                      onBlur={() => void saveText(booking, 'comments')}
+                      rows={2}
+                      className={`min-w-[8rem] ${cellInputClass}`}
+                    />
+                  </td>
+                  <td className="px-2 py-2">
+                    <textarea
+                      value={fieldValue(booking, 'technician_notes')}
+                      onChange={(event) => setDraft(booking.id, 'technician_notes', event.target.value)}
+                      onBlur={() => void saveText(booking, 'technician_notes')}
+                      rows={2}
+                      placeholder={t('addNote')}
+                      className={`min-w-[8rem] ${cellInputClass}`}
+                    />
+                  </td>
+                  <td className="px-2 py-2">
+                    <button
+                      type="button"
+                      onClick={() => void requestDelete(booking.id)}
+                      className="inline-flex items-center justify-center rounded-lg p-1.5 text-danger hover:bg-highlight"
+                      title={t('delete')}
+                    >
+                      <Trash2 className="h-4 w-4" aria-hidden />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

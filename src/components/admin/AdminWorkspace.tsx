@@ -1,5 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, MapPin } from 'lucide-react';
+import { BookingTable } from './BookingTable';
 import { compareSortValues, SortableTableHead, TableHead, toggleSortState, type SortDirection } from './sortableTableHead';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
@@ -243,56 +244,17 @@ function BookingsPanel({
           <option value="failed">{t('pay_failed')}</option>
         </Select>
       </div>
-      {rows.length === 0 ? <EmptyState title={t('noBookings')} /> : null}
-      <div className="grid gap-3">
-        {rows.map((booking) => {
-          const location = formatBookingLocation(booking.city, booking.address);
-          return (
-          <div
-            key={booking.id}
-            role="button"
-            tabIndex={0}
-            onClick={() => setSelected(booking)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                setSelected(booking);
-              }
-            }}
-            className="cursor-pointer rounded-2xl border border-line bg-surface p-4 text-start shadow-card"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="font-semibold">{booking.booking_number}</span>
-              <Badge tone={booking.status === 'completed' ? 'success' : booking.status === 'cancelled' ? 'danger' : 'info'}>{t(`status_${booking.status}`)}</Badge>
-            </div>
-            <p className="mt-1 flex flex-wrap items-center text-sm">
-              {booking.first_name} {booking.last_name}
-              <DotSep />
-              {booking.phone}
-              {location ? (
-                <>
-                  <DotSep />
-                  <span dir="auto">{location}</span>
-                  <button
-                    type="button"
-                    className="ms-1 inline-flex shrink-0 items-center justify-center rounded-lg p-1 text-primary hover:bg-highlight"
-                    aria-label={t('map_show_booking')}
-                    title={t('map_show_booking')}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setMapBooking(booking);
-                    }}
-                  >
-                    <MapPin className="h-5 w-5" aria-hidden />
-                  </button>
-                </>
-              ) : null}
-            </p>
-            <p className="mt-1 flex flex-wrap items-center text-sm text-muted">{formatAppointmentInZone(booking.appointment_start || booking.appointment_date, BUSINESS_TIME_ZONE)}<DotSep />{money(booking.total_amount, booking.currency, locale)}</p>
-          </div>
-          );
-        })}
-      </div>
+      <BookingTable
+        bookings={rows}
+        timeZone={BUSINESS_TIME_ZONE}
+        scheduleConfig={scheduleConfig}
+        locale={locale}
+        onUpdateField={state.saveField}
+        onUpdateStatus={state.saveStatus}
+        onDelete={state.remove}
+        onOpenBooking={setSelected}
+        onShowMap={setMapBooking}
+      />
       {selected ? (
         <Modal title={selected.booking_number} onClose={() => setSelected(null)}>
           <BookingEditor
