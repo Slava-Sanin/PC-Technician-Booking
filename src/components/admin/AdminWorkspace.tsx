@@ -4,7 +4,7 @@ import { BookingTable } from './BookingTable';
 import { compareSortValues, SortableTableHead, TableHead, toggleSortState, type SortDirection } from './sortableTableHead';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
-import { Alert, Badge, Button, Card, DotSep, EmptyState, Field, Input, Modal, ModalFooter, Select, Switch, Textarea } from '../ui';
+import { Alert, Badge, Button, Card, DotSep, DisplayDateInput, EmptyState, Field, Input, Modal, ModalFooter, Select, Switch, Textarea } from '../ui';
 import { useConfirm } from '../ui/ConfirmProvider';
 import { useBookings } from '../../hooks/useBookings';
 import { useBookingSettings } from '../../hooks/useBookingSettings';
@@ -37,7 +37,7 @@ import { AppointmentDateTimeField } from '../schedule/AppointmentDateTimeField';
 import { BOOKING_STATUSES, type Booking, type BookingStatus, type EditableBookingField } from '../../types/booking';
 import { PAYMENT_POLICIES, PRICE_TYPES, localized, type PaymentPolicy, type PriceType } from '../../types/catalog';
 import { isPublicCategory, isPublicService } from '../../utils/catalogRules';
-import { BUSINESS_TIME_ZONE, formatAppointmentInZone, formatISODateToDisplay, getZonedParts, parseDisplayDate, parseDisplayDateTime, todayISOInTimeZone, zonedTimeToUtc } from '../../utils/dateTime';
+import { BUSINESS_TIME_ZONE, DISPLAY_DATETIME_HINT, formatAppointmentInZone, formatISODateToDisplay, getZonedParts, parseDisplayDate, parseDisplayDateTime, todayISOInTimeZone, zonedTimeToUtc } from '../../utils/dateTime';
 import { formatBookingLocation } from '../../utils/formatBookingLocation';
 import { formatDurationMinutes, formatMoney } from '../../utils/pricing';
 import { BookingApiError, errorI18nKey } from '../../utils/errors';
@@ -235,7 +235,7 @@ function BookingsPanel({
           <option value="all">{t('allStatuses')}</option>
           {BOOKING_STATUSES.map((status) => <option key={status} value={status}>{t(`status_${status}`)}</option>)}
         </Select>
-        <Input type="date" value={from} onChange={(event) => setFrom(event.target.value)} aria-label={t('dateFrom')} />
+        <DisplayDateInput value={from} onChange={setFrom} aria-label={t('dateFrom')} />
         <Select value={payment} onChange={(event) => setPayment(event.target.value)} aria-label={t('payment')}>
           <option value="all">{t('allPayments')}</option>
           <option value="paid">{t('pay_paid')}</option>
@@ -442,7 +442,7 @@ function BookingEditor({
           <Input value={address} maxLength={200} dir="auto" onChange={(event) => setAddress(event.target.value)} />
         </Field>
       </div>
-      <Field label={t('appointmentDate')} hint="dd/mm/yyyy HH:mm">
+      <Field label={t('appointmentDate')} hint={DISPLAY_DATETIME_HINT}>
         <AppointmentDateTimeField
           value={appointmentDisplay}
           onChange={setAppointmentDisplay}
@@ -1424,11 +1424,14 @@ function SchedulePanel({ state, isAdmin }: { state: ReturnType<typeof useBooking
         <Field label={t('paymentHold')}><Input type="number" value={draft.paymentHoldMinutes} onChange={(event) => setDraft({ ...draft, paymentHoldMinutes: Number(event.target.value) })} /></Field>
         <Field label={t('bufferMinutes')}><Input type="number" value={draft.bufferMinutes} onChange={(event) => setDraft({ ...draft, bufferMinutes: Number(event.target.value) })} /></Field>
       </div>
-      <Field label={t('disabledDates')}>
+      <Field label={t('disabledDates')} hint={t('disabledDatesHint')}>
         <Input
-          placeholder="dd/mm/yyyy"
+          placeholder={t('disabledDatesPlaceholder')}
+          inputMode="numeric"
+          autoComplete="off"
           onKeyDown={(event) => {
             if (event.key !== 'Enter') return;
+            event.preventDefault();
             const value = event.currentTarget.value.trim();
             const iso = parseDisplayDate(value) ?? (/^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null);
             if (!iso) return;
@@ -1437,9 +1440,21 @@ function SchedulePanel({ state, isAdmin }: { state: ReturnType<typeof useBooking
           }}
         />
         <div className="mt-2 flex flex-wrap gap-2">
-          {draft.disabledDates.map((date) => (
-            <button key={date} type="button" className="rounded-full bg-canvas px-3 py-1 text-xs" onClick={() => setDraft({ ...draft, disabledDates: draft.disabledDates.filter((item) => item !== date) })}>{formatISODateToDisplay(date)}</button>
-          ))}
+          {draft.disabledDates.length === 0 ? (
+            <p className="text-xs font-normal text-muted">{t('disabledDatesEmpty')}</p>
+          ) : (
+            draft.disabledDates.map((date) => (
+              <button
+                key={date}
+                type="button"
+                title={t('disabledDatesRemoveTitle')}
+                className="rounded-full bg-canvas px-3 py-1 text-xs hover:bg-line"
+                onClick={() => setDraft({ ...draft, disabledDates: draft.disabledDates.filter((item) => item !== date) })}
+              >
+                {formatISODateToDisplay(date)} ×
+              </button>
+            ))
+          )}
         </div>
       </Field>
       {isAdmin ? <Button onClick={() => void state.save(draft).then(() => toast.success(t('settingsSaved'))).catch(() => toast.error(t('updateError')))}>{t('saveSettings')}</Button> : null}

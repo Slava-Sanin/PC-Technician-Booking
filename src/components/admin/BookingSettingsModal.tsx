@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import type { BookingSettings } from '../../types/bookingSettings';
+import { DisplayDateInput } from '../ui/DisplayDateInput';
 import { BUSINESS_TIME_ZONE, todayISOInTimeZone } from '../../utils/dateTime';
 
 interface BookingSettingsModalProps {
@@ -122,19 +123,19 @@ export function BookingSettingsModal({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">{t('disabledDates')}</label>
+            <p className="mb-2 text-xs text-gray-600">{t('disabledDatesHintModal')}</p>
             <div className="space-y-2">
               {draft.disabledDates.map((date, index) => (
                 <div key={`${date}-${index}`} className="flex items-center gap-2">
-                  <input
-                    type="date"
+                  <DisplayDateInput
                     disabled={!canEdit}
+                    className="flex-1"
                     value={date}
-                    onChange={(event) => {
+                    onChange={(iso) => {
                       const disabledDates = [...draft.disabledDates];
-                      disabledDates[index] = event.target.value;
+                      disabledDates[index] = iso;
                       update({ disabledDates: disabledDates.filter(Boolean) });
                     }}
-                    className="flex-1 rounded-md border border-gray-300 px-3 py-2"
                   />
                   <button
                     type="button"

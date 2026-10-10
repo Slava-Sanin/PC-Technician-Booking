@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-import { Badge, DotSep, EmptyState, Input, Select } from '../ui';
+import { Badge, DotSep, DisplayDateInput, EmptyState, Select } from '../ui';
 import type { Booking } from '../../types/booking';
 import { BOOKING_STATUSES, type BookingStatus } from '../../types/booking';
 import { BUSINESS_TIME_ZONE, formatAppointmentInZone, getZonedParts, todayISOInTimeZone } from '../../utils/dateTime';
@@ -145,8 +145,8 @@ export function BookingsMapPanel({ bookings }: { bookings: Booking[] }) {
         </Select>
         {preset === 'custom' ? (
           <>
-            <Input type="date" value={customFrom} onChange={(event) => setCustomFrom(event.target.value)} aria-label={t('dateFrom')} />
-            <Input type="date" value={customTo} onChange={(event) => setCustomTo(event.target.value)} aria-label={t('dateTo')} />
+            <DisplayDateInput value={customFrom} onChange={setCustomFrom} aria-label={t('dateFrom')} />
+            <DisplayDateInput value={customTo} onChange={setCustomTo} aria-label={t('dateTo')} />
           </>
         ) : (
           <div className="md:col-span-2 flex flex-wrap items-center gap-2 text-sm text-muted">

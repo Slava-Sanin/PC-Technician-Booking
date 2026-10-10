@@ -1,4 +1,6 @@
 export const BUSINESS_TIME_ZONE = 'Asia/Jerusalem';
+export const DISPLAY_DATE_PLACEHOLDER = 'dd/mm/yyyy';
+export const DISPLAY_DATETIME_HINT = 'dd/mm/yyyy HH:mm';
 
 interface ZonedParts {
   year: string;

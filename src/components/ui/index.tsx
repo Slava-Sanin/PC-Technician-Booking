@@ -28,6 +28,8 @@ export function Input(props: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${controlClass} ${props.className ?? ''}`} />;
 }
 
+export { DisplayDateInput } from './DisplayDateInput';
+
 export function Textarea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea {...props} className={`${controlClass} min-h-28 ${props.className ?? ''}`} />;
 }

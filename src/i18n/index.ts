@@ -87,6 +87,13 @@ const resources = {
       saturday: 'Суббота',
       remove: 'Удалить',
       addDate: 'Добавить дату',
+      disabledDatesHint:
+        'Введите дату как ДД/ММ/ГГГГ и нажмите Enter — она появится в списке ниже. Нажмите на дату в списке, чтобы убрать её. В эти дни клиенты не смогут записаться.',
+      disabledDatesHintModal:
+        'Нажмите «Добавить дату», укажите день в формате ДД/ММ/ГГГГ и сохраните настройки. В эти дни запись для клиентов закрыта.',
+      disabledDatesPlaceholder: 'Например, 31/12/2026',
+      disabledDatesEmpty: 'Пока нет недоступных дат — добавьте их в поле выше.',
+      disabledDatesRemoveTitle: 'Нажмите, чтобы убрать дату из списка',
       minIntervalHours: 'Интервал между заявками',
       workHours: 'Рабочие часы',
       workStartTime: 'Время начала',
@@ -229,6 +236,13 @@ const resources = {
       saturday: 'יום שבת',
       remove: 'הסר',
       addDate: 'הוסף תאריך',
+      disabledDatesHint:
+        'הזינו תאריך בפורמט dd/mm/yyyy ולחצו Enter — הוא יופיע ברשימה למטה. לחצו על תאריך ברשימה כדי להסיר אותו. בימים אלה לקוחות לא יוכלו להזמין.',
+      disabledDatesHintModal:
+        'לחצו «הוסף תאריך», בחרו יום בפורמט dd/mm/yyyy ושמרו את ההגדרות. בימים אלה ההזמנה ללקוחות חסומה.',
+      disabledDatesPlaceholder: 'לדוגמה, 31/12/2026',
+      disabledDatesEmpty: 'אין עדיין תאריכים חסומים — הוסיפו אותם בשדה למעלה.',
+      disabledDatesRemoveTitle: 'לחץ להסרת התאריך מהרשימה',
       minIntervalHours: 'מרווח בין בקשות',
       workHours: 'שעות עבודה',
       workStartTime: 'שעת התחלה',
@@ -371,6 +385,13 @@ const resources = {
       saturday: 'Saturday',
       remove: 'Remove',
       addDate: 'Add date',
+      disabledDatesHint:
+        'Enter a date as dd/mm/yyyy and press Enter — it will appear in the list below. Click a date in the list to remove it. Customers cannot book on these days.',
+      disabledDatesHintModal:
+        'Click “Add date”, pick a day in dd/mm/yyyy format, and save settings. Customers cannot book on these days.',
+      disabledDatesPlaceholder: 'For example, 31/12/2026',
+      disabledDatesEmpty: 'No blocked dates yet — add them in the field above.',
+      disabledDatesRemoveTitle: 'Click to remove this date from the list',
       minIntervalHours: 'Interval between bookings',
       workHours: 'Work hours',
       workStartTime: 'Start time',
