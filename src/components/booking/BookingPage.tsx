@@ -760,7 +760,7 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
       </div>
       <CustomerAuthModal open={authOpen} onClose={() => setAuthOpen(false)} onSuccess={() => void refreshAuth()} />
       {customer && bookingsOpen ? (
-        <CustomerBookingsPanel profile={customer} onClose={() => setBookingsOpen(false)} onLogout={() => setCustomer(null)} />
+        <CustomerBookingsPanel onClose={() => setBookingsOpen(false)} />
       ) : null}
     </Shell>
   );

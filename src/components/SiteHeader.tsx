@@ -53,7 +53,7 @@ export function SiteHeader({
             {subtitle ? <p className="hidden truncate text-xs text-muted sm:block">{subtitle}</p> : null}
           </div>
         </div>
-        <div className="flex shrink-0 items-end gap-2 pt-1.5 sm:gap-3 sm:pt-2">
+        <div className="flex shrink-0 items-stretch gap-2 sm:gap-3">
           <HeaderSector label={t('headerSectorClients')}>
             {customer ? (
               <>
@@ -87,7 +87,7 @@ export function SiteHeader({
               <SectorButton onClick={onStaffAdmin}>{t('admin')}</SectorButton>
             ) : null}
           </HeaderSector>
-          <div className="ms-3 sm:ms-5">
+          <div className="ms-1 flex items-center self-center sm:ms-3">
             <LanguageSwitcher />
           </div>
         </div>

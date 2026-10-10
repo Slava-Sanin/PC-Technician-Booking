@@ -58,7 +58,7 @@
   }
 
   .header-action-sector {
-    @apply relative flex min-w-0 flex-col items-center rounded-lg border border-line bg-canvas px-2 pb-1.5 pt-2 sm:px-2.5 sm:pb-2 sm:pt-2.5;
+    @apply relative flex min-h-[2.75rem] min-w-0 flex-col items-center justify-center gap-0.5 self-stretch rounded-lg border border-line bg-canvas px-2 pb-1.5 pt-2 sm:min-h-[3rem] sm:px-2.5 sm:pb-2 sm:pt-2.5;
   }
 
   .header-action-sector-label {

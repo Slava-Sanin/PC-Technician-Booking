@@ -4,9 +4,7 @@ import { toast } from 'react-hot-toast';
 import {
   cancelCustomerBooking,
   fetchCustomerBookings,
-  logoutCustomer,
   updateCustomerBooking,
-  type CustomerProfile,
 } from '../../services/customerService';
 import type { Booking } from '../../types/booking';
 import { formatISODateToDisplay } from '../../utils/dateTime';
@@ -15,15 +13,7 @@ import { BookingApiError, errorI18nKey } from '../../utils/errors';
 import { useConfirm } from '../ui/ConfirmProvider';
 import { Button, Card, DotSep, Field, Input, Textarea } from '../ui';
 
-export function CustomerBookingsPanel({
-  profile,
-  onClose,
-  onLogout,
-}: {
-  profile: CustomerProfile;
-  onClose: () => void;
-  onLogout: () => void;
-}) {
+export function CustomerBookingsPanel({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
   const confirm = useConfirm();
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -90,26 +80,29 @@ export function CustomerBookingsPanel({
     }
   };
 
-  const handleLogout = async () => {
-    await logoutCustomer();
-    onLogout();
-    onClose();
-  };
-
   const canModify = (status: string) => !['completed', 'cancelled', 'no_show', 'payment_expired'].includes(status);
+  const editingBooking = editingId ? bookings.find((booking) => booking.id === editingId) : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <Card className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden p-0">
-        <div className="flex items-center justify-between border-b border-line px-4 py-3">
-          <div>
-            <h2 className="text-lg font-semibold">{t('customerMyBookings')}</h2>
-            <p className="text-sm text-muted">{profile.firstName} {profile.lastName}</p>
+        <div className="relative flex items-center border-b border-line px-4 py-3">
+          <div className="flex-1 text-center">
+            <h2 className="text-lg font-semibold">
+              {editingBooking ? t('customerEditBookingTitle') : t('customerMyBookings')}
+            </h2>
+            {editingBooking ? (
+              <p className="text-sm text-muted">#{editingBooking.booking_number}</p>
+            ) : null}
           </div>
-          <div className="flex gap-2">
-            <Button variant="secondary" onClick={() => void handleLogout()}>{t('logout')}</Button>
-            <Button variant="ghost" onClick={onClose}>{t('close')}</Button>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="absolute end-4 inline-flex h-11 w-11 shrink-0 items-center justify-center text-3xl font-bold leading-none text-danger"
+            aria-label={t('close')}
+          >
+            ×
+          </button>
         </div>
         <div className="overflow-y-auto p-4">
           {loading ? <p className="text-sm text-muted">{t('loading')}</p> : null}
@@ -136,7 +129,9 @@ export function CustomerBookingsPanel({
                   </div>
                   {canModify(booking.status) ? (
                     <div className="flex gap-2">
-                      <Button variant="primary" onClick={() => startEdit(booking)}>{t('edit')}</Button>
+                      {editingId !== booking.id ? (
+                        <Button variant="primary" onClick={() => startEdit(booking)}>{t('edit')}</Button>
+                      ) : null}
                       <Button variant="danger" onClick={() => void cancelBooking(booking.id)}>{t('customerCancelBooking')}</Button>
                     </div>
                   ) : null}
