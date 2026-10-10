@@ -31,7 +31,8 @@ import {
   type StaffProfileInput,
   type StaffRow,
 } from '../../services/catalogService';
-import type { StaffProfile, WorkingHourDay } from '../../types/bookingSettings';
+import type { PublicBookingConfig, StaffProfile, WorkingHourDay } from '../../types/bookingSettings';
+import { AppointmentDateTimeField } from '../schedule/AppointmentDateTimeField';
 import { BOOKING_STATUSES, type Booking, type BookingStatus, type EditableBookingField } from '../../types/booking';
 import { PAYMENT_POLICIES, PRICE_TYPES, localized, type PaymentPolicy, type PriceType } from '../../types/catalog';
 import { isPublicCategory, isPublicService } from '../../utils/catalogRules';
@@ -90,7 +91,7 @@ export function AdminWorkspace({
       </nav>
       <div className="p-4 sm:p-6">
         {panel === 'dashboard' ? <Dashboard bookings={bookingsState.bookings} /> : null}
-        {panel === 'bookings' ? <BookingsPanel state={bookingsState} /> : null}
+        {panel === 'bookings' ? <BookingsPanel state={bookingsState} scheduleConfig={settingsState.settings} /> : null}
         {panel === 'calendar' ? <CalendarPanel bookings={bookingsState.bookings} /> : null}
         {panel === 'map' ? (
           <Suspense fallback={<p className="text-sm text-muted">{t('loading')}</p>}>
@@ -190,7 +191,13 @@ function Dashboard({ bookings }: { bookings: Booking[] }) {
   );
 }
 
-function BookingsPanel({ state }: { state: ReturnType<typeof useBookings> }) {
+function BookingsPanel({
+  state,
+  scheduleConfig,
+}: {
+  state: ReturnType<typeof useBookings>;
+  scheduleConfig: ReturnType<typeof useBookingSettings>['settings'];
+}) {
   const { t, i18n } = useTranslation();
   const [query, setQuery] = useState('');
   const [payment, setPayment] = useState('all');
@@ -290,6 +297,7 @@ function BookingsPanel({ state }: { state: ReturnType<typeof useBookings> }) {
         <Modal title={selected.booking_number} onClose={() => setSelected(null)}>
           <BookingEditor
             booking={selected}
+            scheduleConfig={scheduleConfig}
             onUpdateField={state.saveField}
             onStatus={state.saveStatus}
             onDelete={state.remove}
@@ -308,12 +316,14 @@ function BookingsPanel({ state }: { state: ReturnType<typeof useBookings> }) {
 
 function BookingEditor({
   booking,
+  scheduleConfig,
   onUpdateField,
   onStatus,
   onDelete,
   onClose,
 }: {
   booking: Booking;
+  scheduleConfig: PublicBookingConfig | null;
   onUpdateField: (id: string, field: EditableBookingField, value: string) => Promise<void>;
   onStatus: (id: string, status: BookingStatus) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -471,7 +481,13 @@ function BookingEditor({
         </Field>
       </div>
       <Field label={t('appointmentDate')} hint="dd/mm/yyyy HH:mm">
-        <Input value={appointmentDisplay} onChange={(event) => setAppointmentDisplay(event.target.value)} />
+        <AppointmentDateTimeField
+          value={appointmentDisplay}
+          onChange={setAppointmentDisplay}
+          booking={booking}
+          scheduleConfig={scheduleConfig}
+          timeZone={timeZone}
+        />
       </Field>
       <Field label={t('operatingSystem')}>
         <Select value={operatingSystem} onChange={(event) => setOperatingSystem(event.target.value)}>
