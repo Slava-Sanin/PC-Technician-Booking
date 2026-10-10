@@ -13,7 +13,7 @@ import { formatISODateToDisplay } from '../../utils/dateTime';
 import { formatBookingLocation } from '../../utils/formatBookingLocation';
 import { BookingApiError, errorI18nKey } from '../../utils/errors';
 import { useConfirm } from '../ui/ConfirmProvider';
-import { Button, Card, Field, Input, Textarea } from '../ui';
+import { Button, Card, DotSep, Field, Input, Textarea } from '../ui';
 
 export function CustomerBookingsPanel({
   profile,
@@ -120,7 +120,7 @@ export function CustomerBookingsPanel({
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <p className="font-semibold">#{booking.booking_number}</p>
-                    <p className="text-sm text-muted">{formatISODateToDisplay(booking.appointment_date)} · {t(`status_${booking.status}`, { defaultValue: booking.status })}</p>
+                    <p className="flex flex-wrap items-center justify-center text-sm text-muted">{formatISODateToDisplay(booking.appointment_date)}<DotSep />{t(`status_${booking.status}`, { defaultValue: booking.status })}</p>
                   </div>
                   {canModify(booking.status) ? (
                     <div className="flex gap-2">

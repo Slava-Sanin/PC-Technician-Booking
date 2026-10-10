@@ -1,9 +1,9 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowDown, ArrowUp } from 'lucide-react';
+import { ArrowDown, ArrowUp, MapPin } from 'lucide-react';
 import { compareSortValues, SortableTableHead, TableHead, toggleSortState, type SortDirection } from './sortableTableHead';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
-import { Alert, Badge, Button, Card, EmptyState, Field, Input, Modal, ModalFooter, Select, Switch, Textarea } from '../ui';
+import { Alert, Badge, Button, Card, DotSep, EmptyState, Field, Input, Modal, ModalFooter, Select, Switch, Textarea } from '../ui';
 import { useConfirm } from '../ui/ConfirmProvider';
 import { useBookings } from '../../hooks/useBookings';
 import { useBookingSettings } from '../../hooks/useBookingSettings';
@@ -32,14 +32,17 @@ import {
   type StaffRow,
 } from '../../services/catalogService';
 import type { StaffProfile, WorkingHourDay } from '../../types/bookingSettings';
-import { BOOKING_STATUSES, type Booking, type BookingStatus } from '../../types/booking';
+import { BOOKING_STATUSES, type Booking, type BookingStatus, type EditableBookingField } from '../../types/booking';
 import { PAYMENT_POLICIES, PRICE_TYPES, localized, type PaymentPolicy, type PriceType } from '../../types/catalog';
 import { isPublicCategory, isPublicService } from '../../utils/catalogRules';
-import { BUSINESS_TIME_ZONE, formatAppointmentInZone, formatISODateToDisplay, getZonedParts, parseDisplayDate, todayISOInTimeZone } from '../../utils/dateTime';
+import { BUSINESS_TIME_ZONE, formatAppointmentInZone, formatISODateToDisplay, getZonedParts, parseDisplayDate, parseDisplayDateTime, todayISOInTimeZone, zonedTimeToUtc } from '../../utils/dateTime';
 import { formatBookingLocation } from '../../utils/formatBookingLocation';
 import { formatDurationMinutes, formatMoney } from '../../utils/pricing';
 import { BookingApiError, errorI18nKey } from '../../utils/errors';
 const BookingsMapPanel = lazy(() => import('./BookingsMapPanel').then((module) => ({ default: module.BookingsMapPanel })));
+const BookingAddressMapModal = lazy(() =>
+  import('./BookingAddressMapModal').then((module) => ({ default: module.BookingAddressMapModal })),
+);
 
 type Panel = 'dashboard' | 'bookings' | 'calendar' | 'map' | 'categories' | 'services' | 'technicians' | 'schedule' | 'payments' | 'settings';
 
@@ -145,7 +148,7 @@ function Dashboard({ bookings }: { bookings: Booking[] }) {
         <ul className="mt-3 divide-y divide-line">
           {upcoming.map((booking) => (
             <li key={booking.id} className="flex items-center justify-between gap-3 py-3 text-sm">
-              <span>{booking.booking_number} · {booking.first_name} {booking.last_name}</span>
+              <span className="inline-flex flex-wrap items-center">{booking.booking_number}<DotSep />{booking.first_name} {booking.last_name}</span>
               <span className="text-muted">{formatAppointmentInZone(booking.appointment_start || booking.appointment_date, BUSINESS_TIME_ZONE)}</span>
             </li>
           ))}
@@ -161,9 +164,16 @@ function BookingsPanel({ state }: { state: ReturnType<typeof useBookings> }) {
   const [payment, setPayment] = useState('all');
   const [from, setFrom] = useState('');
   const [selected, setSelected] = useState<Booking | null>(null);
+  const [mapBooking, setMapBooking] = useState<Booking | null>(null);
   const locale = i18n.language;
+
+  useEffect(() => {
+    if (!selected) return;
+    const fresh = state.bookings.find((booking) => booking.id === selected.id);
+    if (fresh) setSelected(fresh);
+  }, [state.bookings, selected?.id]);
   const rows = state.bookings.filter((booking) => {
-    const text = `${booking.booking_number} ${booking.first_name} ${booking.last_name} ${booking.phone} ${booking.city ?? ''}`.toLowerCase();
+    const text = `${booking.booking_number} ${booking.first_name} ${booking.last_name} ${booking.phone} ${booking.city ?? ''} ${booking.address}`.toLowerCase();
     if (query && !text.includes(query.toLowerCase())) return false;
     if (payment !== 'all' && booking.payment_status !== payment) return false;
     const day = civilDate(booking.appointment_start || booking.appointment_date);
@@ -196,21 +206,69 @@ function BookingsPanel({ state }: { state: ReturnType<typeof useBookings> }) {
       </div>
       {rows.length === 0 ? <EmptyState title={t('noBookings')} /> : null}
       <div className="grid gap-3">
-        {rows.map((booking) => (
-          <button key={booking.id} type="button" onClick={() => setSelected(booking)} className="rounded-2xl border border-line bg-surface p-4 text-start shadow-card">
+        {rows.map((booking) => {
+          const location = formatBookingLocation(booking.city, booking.address);
+          return (
+          <div
+            key={booking.id}
+            role="button"
+            tabIndex={0}
+            onClick={() => setSelected(booking)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setSelected(booking);
+              }
+            }}
+            className="cursor-pointer rounded-2xl border border-line bg-surface p-4 text-start shadow-card"
+          >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <span className="font-semibold">{booking.booking_number}</span>
               <Badge tone={booking.status === 'completed' ? 'success' : booking.status === 'cancelled' ? 'danger' : 'info'}>{t(`status_${booking.status}`)}</Badge>
             </div>
-            <p className="mt-1 text-sm">{booking.first_name} {booking.last_name} · {booking.phone}</p>
-            <p className="mt-1 text-sm text-muted">{formatAppointmentInZone(booking.appointment_start || booking.appointment_date, BUSINESS_TIME_ZONE)} · {money(booking.total_amount, booking.currency, locale)}</p>
-          </button>
-        ))}
+            <p className="mt-1 flex flex-wrap items-center text-sm">
+              {booking.first_name} {booking.last_name}
+              <DotSep />
+              {booking.phone}
+              {location ? (
+                <>
+                  <DotSep />
+                  <span dir="auto">{location}</span>
+                  <button
+                    type="button"
+                    className="ms-1 inline-flex shrink-0 items-center justify-center rounded-lg p-1 text-primary hover:bg-blue-50"
+                    aria-label={t('map_show_booking')}
+                    title={t('map_show_booking')}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setMapBooking(booking);
+                    }}
+                  >
+                    <MapPin className="h-5 w-5" aria-hidden />
+                  </button>
+                </>
+              ) : null}
+            </p>
+            <p className="mt-1 flex flex-wrap items-center text-sm text-muted">{formatAppointmentInZone(booking.appointment_start || booking.appointment_date, BUSINESS_TIME_ZONE)}<DotSep />{money(booking.total_amount, booking.currency, locale)}</p>
+          </div>
+          );
+        })}
       </div>
       {selected ? (
         <Modal title={selected.booking_number} onClose={() => setSelected(null)}>
-          <BookingEditor booking={selected} onStatus={state.saveStatus} onDelete={state.remove} onClose={() => setSelected(null)} />
+          <BookingEditor
+            booking={selected}
+            onUpdateField={state.saveField}
+            onStatus={state.saveStatus}
+            onDelete={state.remove}
+            onClose={() => setSelected(null)}
+          />
         </Modal>
+      ) : null}
+      {mapBooking ? (
+        <Suspense fallback={null}>
+          <BookingAddressMapModal booking={mapBooking} onClose={() => setMapBooking(null)} />
+        </Suspense>
       ) : null}
     </div>
   );
@@ -218,37 +276,253 @@ function BookingsPanel({ state }: { state: ReturnType<typeof useBookings> }) {
 
 function BookingEditor({
   booking,
+  onUpdateField,
   onStatus,
   onDelete,
   onClose,
 }: {
   booking: Booking;
+  onUpdateField: (id: string, field: EditableBookingField, value: string) => Promise<void>;
   onStatus: (id: string, status: BookingStatus) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onClose: () => void;
 }) {
   const { t, i18n } = useTranslation();
   const confirm = useConfirm();
+  const timeZone = BUSINESS_TIME_ZONE;
+
+  const [firstName, setFirstName] = useState(booking.first_name);
+  const [lastName, setLastName] = useState(booking.last_name);
+  const [phone, setPhone] = useState(booking.phone);
+  const [city, setCity] = useState(booking.city ?? '');
+  const [address, setAddress] = useState(booking.address);
+  const [operatingSystem, setOperatingSystem] = useState(booking.operating_system);
+  const [comments, setComments] = useState(booking.comments ?? '');
+  const [technicianNotes, setTechnicianNotes] = useState(booking.technician_notes ?? '');
+  const [appointmentDisplay, setAppointmentDisplay] = useState(() =>
+    formatAppointmentInZone(booking.appointment_start || booking.appointment_date, timeZone),
+  );
+  const [status, setStatus] = useState(booking.status);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setFirstName(booking.first_name);
+    setLastName(booking.last_name);
+    setPhone(booking.phone);
+    setCity(booking.city ?? '');
+    setAddress(booking.address);
+    setOperatingSystem(booking.operating_system);
+    setComments(booking.comments ?? '');
+    setTechnicianNotes(booking.technician_notes ?? '');
+    setAppointmentDisplay(formatAppointmentInZone(booking.appointment_start || booking.appointment_date, timeZone));
+    setStatus(booking.status);
+  }, [booking, timeZone]);
+
+  const savedAppointmentDisplay = formatAppointmentInZone(
+    booking.appointment_start || booking.appointment_date,
+    timeZone,
+  );
+
+  const isDirty = useMemo(() => {
+    if (firstName.trim() !== booking.first_name.trim()) return true;
+    if (lastName.trim() !== booking.last_name.trim()) return true;
+    if (phone.trim() !== booking.phone.trim()) return true;
+    if (city.trim() !== (booking.city ?? '').trim()) return true;
+    if (address.trim() !== booking.address.trim()) return true;
+    if (operatingSystem !== booking.operating_system) return true;
+    if (comments !== (booking.comments ?? '')) return true;
+    if (technicianNotes !== (booking.technician_notes ?? '')) return true;
+    if (status !== booking.status) return true;
+    if (appointmentDisplay.trim() === savedAppointmentDisplay.trim()) return false;
+    const parsed = parseDisplayDateTime(appointmentDisplay);
+    if (!parsed) return true;
+    const iso = zonedTimeToUtc(parsed.date, parsed.time, timeZone).toISOString();
+    return formatAppointmentInZone(iso, timeZone) !== formatAppointmentInZone(booking.appointment_date, timeZone);
+  }, [
+    address,
+    appointmentDisplay,
+    booking,
+    city,
+    comments,
+    firstName,
+    lastName,
+    operatingSystem,
+    phone,
+    savedAppointmentDisplay,
+    status,
+    technicianNotes,
+    timeZone,
+  ]);
+
+  const persistField = async (field: EditableBookingField, value: string, original: string | null | undefined) => {
+    const normalized = value.trim();
+    const prior = (original ?? '').trim();
+    if (field === 'city') {
+      if (normalized === prior) return;
+    } else if (field === 'address') {
+      if (!normalized || normalized === prior) return;
+    } else if (normalized === prior) {
+      return;
+    }
+    try {
+      await onUpdateField(booking.id, field, field === 'comments' || field === 'technician_notes' ? value : normalized);
+      toast.success(t('fieldUpdated'));
+    } catch {
+      toast.error(t('updateError'));
+    }
+  };
+
+  const saveAppointment = async (silent = false) => {
+    const parsed = parseDisplayDateTime(appointmentDisplay);
+    if (!parsed) {
+      setAppointmentDisplay(formatAppointmentInZone(booking.appointment_start || booking.appointment_date, timeZone));
+      return false;
+    }
+    const iso = zonedTimeToUtc(parsed.date, parsed.time, timeZone).toISOString();
+    if (formatAppointmentInZone(iso, timeZone) === formatAppointmentInZone(booking.appointment_date, timeZone)) {
+      return false;
+    }
+    await onUpdateField(booking.id, 'appointment_date', iso);
+    if (!silent) toast.success(t('fieldUpdated'));
+    return true;
+  };
+
+  const saveAll = async () => {
+    if (!address.trim()) {
+      toast.error(t('updateError'));
+      return;
+    }
+    setSaving(true);
+    try {
+      const updates: Array<Promise<void>> = [];
+      if (firstName.trim() !== booking.first_name.trim()) {
+        updates.push(onUpdateField(booking.id, 'first_name', firstName.trim()));
+      }
+      if (lastName.trim() !== booking.last_name.trim()) {
+        updates.push(onUpdateField(booking.id, 'last_name', lastName.trim()));
+      }
+      if (phone.trim() !== booking.phone.trim()) {
+        updates.push(onUpdateField(booking.id, 'phone', phone.trim()));
+      }
+      if (city.trim() !== (booking.city ?? '').trim()) {
+        updates.push(onUpdateField(booking.id, 'city', city.trim()));
+      }
+      if (address.trim() !== booking.address.trim()) {
+        updates.push(onUpdateField(booking.id, 'address', address.trim()));
+      }
+      if (operatingSystem !== booking.operating_system) {
+        updates.push(onUpdateField(booking.id, 'operating_system', operatingSystem));
+      }
+      if (comments !== (booking.comments ?? '')) {
+        updates.push(onUpdateField(booking.id, 'comments', comments));
+      }
+      if (technicianNotes !== (booking.technician_notes ?? '')) {
+        updates.push(onUpdateField(booking.id, 'technician_notes', technicianNotes));
+      }
+      if (status !== booking.status) {
+        updates.push(onStatus(booking.id, status));
+      }
+
+      const parsed = parseDisplayDateTime(appointmentDisplay);
+      if (parsed) {
+        const iso = zonedTimeToUtc(parsed.date, parsed.time, timeZone).toISOString();
+        if (formatAppointmentInZone(iso, timeZone) !== formatAppointmentInZone(booking.appointment_date, timeZone)) {
+          updates.push(onUpdateField(booking.id, 'appointment_date', iso));
+        }
+      } else {
+        setAppointmentDisplay(formatAppointmentInZone(booking.appointment_start || booking.appointment_date, timeZone));
+        toast.error(t('updateError'));
+        return;
+      }
+
+      if (updates.length === 0) return;
+
+      await Promise.all(updates);
+      toast.success(t('save'));
+      onClose();
+    } catch {
+      toast.error(t('updateError'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-4 text-sm">
-      <p>{booking.first_name} {booking.last_name}</p>
-      <p>{booking.phone} {booking.email}</p>
-      <p dir="auto">{formatBookingLocation(booking.city, booking.address)}</p>
-      <p>{t(`mode_${booking.service_mode ?? 'onsite'}`)}</p>
-      <p>{booking.device_type} · {booking.operating_system}</p>
-      <p>{booking.problem_description}</p>
-      <ul className="space-y-1">
-        {(booking.booking_services ?? []).map((line) => (
-          <li key={line.id}>{localized(line.service_name_snapshot, i18n.language)} · {formatDurationMinutes(line.duration_minutes, { minutesShort: t('minutesShort'), hoursShort: t('hoursShort') })}</li>
-        ))}
-      </ul>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label={t('firstName')}>
+          <Input value={firstName} onChange={(event) => setFirstName(event.target.value)} onBlur={() => void persistField('first_name', firstName, booking.first_name)} />
+        </Field>
+        <Field label={t('lastName')}>
+          <Input value={lastName} onChange={(event) => setLastName(event.target.value)} onBlur={() => void persistField('last_name', lastName, booking.last_name)} />
+        </Field>
+        <Field label={t('phone')}>
+          <Input type="tel" value={phone} onChange={(event) => setPhone(event.target.value)} onBlur={() => void persistField('phone', phone, booking.phone)} />
+        </Field>
+        <Field label={t('email')}>
+          <Input type="email" value={booking.email ?? ''} readOnly disabled className="opacity-70" />
+        </Field>
+        <Field label={t('city')}>
+          <Input value={city} maxLength={80} onChange={(event) => setCity(event.target.value)} onBlur={() => void persistField('city', city, booking.city)} />
+        </Field>
+        <Field label={t('address')}>
+          <Input value={address} maxLength={200} dir="auto" onChange={(event) => setAddress(event.target.value)} onBlur={() => void persistField('address', address, booking.address)} />
+        </Field>
+      </div>
+      <Field label={t('appointmentDate')} hint="dd/mm/yyyy HH:mm">
+        <Input
+          value={appointmentDisplay}
+          onChange={(event) => setAppointmentDisplay(event.target.value)}
+          onBlur={() => void saveAppointment(true).catch(() => toast.error(t('updateError')))}
+        />
+      </Field>
+      <Field label={t('operatingSystem')}>
+        <Select value={operatingSystem} onChange={(event) => setOperatingSystem(event.target.value)}>
+          <option value="windows">{t('windows')}</option>
+          <option value="linux">{t('linux')}</option>
+          <option value="macos">{t('macos')}</option>
+        </Select>
+      </Field>
+      <Field label={t('comments')}>
+        <Textarea rows={2} value={comments} onChange={(event) => setComments(event.target.value)} onBlur={() => void persistField('comments', comments, booking.comments)} />
+      </Field>
+      <Field label={t('technicianNotes')}>
+        <Textarea rows={2} value={technicianNotes} onChange={(event) => setTechnicianNotes(event.target.value)} onBlur={() => void persistField('technician_notes', technicianNotes, booking.technician_notes)} />
+      </Field>
+
+      <div className="rounded-xl border border-line bg-canvas px-3 py-2 text-muted">
+        <p className="flex flex-wrap items-center">
+          <DotSep />
+          {t(`mode_${booking.service_mode ?? 'onsite'}`)}
+        </p>
+        {[booking.device_type, booking.device_brand, booking.device_model].some(Boolean) ? (
+          <p className="mt-1 flex flex-wrap items-center">
+            <DotSep />
+            {[booking.device_type, booking.device_brand, booking.device_model].filter(Boolean).join(' ')}
+          </p>
+        ) : null}
+        {booking.problem_description ? <p className="mt-1">{booking.problem_description}</p> : null}
+        <ul className="mt-2 space-y-1">
+          {(booking.booking_services ?? []).map((line) => (
+            <li key={line.id} className="flex flex-wrap items-center text-ink">
+              {localized(line.service_name_snapshot, i18n.language)}
+              <DotSep />
+              {formatDurationMinutes(line.duration_minutes, { minutesShort: t('minutesShort'), hoursShort: t('hoursShort') })}
+            </li>
+          ))}
+        </ul>
+      </div>
+
       <Field label={t('status')}>
-        <Select value={booking.status} onChange={(event) => void onStatus(booking.id, event.target.value as BookingStatus).then(onClose)}>
-          {BOOKING_STATUSES.map((status) => <option key={status} value={status}>{t(`status_${status}`)}</option>)}
+        <Select value={status} onChange={(event) => setStatus(event.target.value as BookingStatus)}>
+          {BOOKING_STATUSES.map((item) => <option key={item} value={item}>{t(`status_${item}`)}</option>)}
         </Select>
       </Field>
       {!booking.deleted_at ? (
         <ModalFooter>
+          <Button variant="primary" disabled={saving || !isDirty} onClick={() => void saveAll()}>
+            {saving ? t('saving') : t('save')}
+          </Button>
           <Button
             variant="danger"
             onClick={() => {
@@ -297,7 +571,7 @@ function CalendarPanel({ bookings }: { bookings: Booking[] }) {
           <h2 className="font-semibold">{formatISODateToDisplay(day)}</h2>
           <ul className="mt-2 space-y-2 text-sm">
             {items.map((booking) => (
-              <li key={booking.id}>{formatAppointmentInZone(booking.appointment_start || booking.appointment_date, BUSINESS_TIME_ZONE).slice(-5)} · {booking.first_name} {booking.last_name} · {t(`status_${booking.status}`)}</li>
+              <li key={booking.id} className="flex flex-wrap items-center">{formatAppointmentInZone(booking.appointment_start || booking.appointment_date, BUSINESS_TIME_ZONE).slice(-5)}<DotSep />{booking.first_name} {booking.last_name}<DotSep />{t(`status_${booking.status}`)}</li>
             ))}
           </ul>
         </Card>

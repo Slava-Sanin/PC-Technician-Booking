@@ -61,6 +61,10 @@ async function geocodeQuery(query: string, signal?: AbortSignal): Promise<GeoPoi
   return point;
 }
 
+export function geocodeLocationQuery(query: string, signal?: AbortSignal): Promise<GeoPoint | null> {
+  return geocodeQuery(query, signal);
+}
+
 export async function geocodeBookingsSequential(
   queries: Array<{ id: string; query: string }>,
   signal?: AbortSignal,

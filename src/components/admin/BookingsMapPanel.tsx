@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-import { Badge, EmptyState, Input, Select } from '../ui';
+import { Badge, DotSep, EmptyState, Input, Select } from '../ui';
 import type { Booking } from '../../types/booking';
 import { BOOKING_STATUSES, type BookingStatus } from '../../types/booking';
 import { BUSINESS_TIME_ZONE, formatAppointmentInZone, getZonedParts, todayISOInTimeZone } from '../../utils/dateTime';
@@ -151,9 +151,14 @@ export function BookingsMapPanel({ bookings }: { bookings: Booking[] }) {
         ) : (
           <div className="md:col-span-2 flex flex-wrap items-center gap-2 text-sm text-muted">
             <span>{t('map_bookings_in_period', { count: filtered.length })}</span>
-            <span>·</span>
+            <DotSep />
             <span>{t('map_points_on_map', { count: markers.length })}</span>
-            {geocodeFailed > 0 ? <span>· {t('map_geocode_failed', { count: geocodeFailed })}</span> : null}
+            {geocodeFailed > 0 ? (
+              <>
+                <DotSep />
+                <span>{t('map_geocode_failed', { count: geocodeFailed })}</span>
+              </>
+            ) : null}
           </div>
         )}
       </div>
@@ -161,9 +166,14 @@ export function BookingsMapPanel({ bookings }: { bookings: Booking[] }) {
       {preset === 'custom' ? (
         <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
           <span>{t('map_bookings_in_period', { count: filtered.length })}</span>
-          <span>·</span>
+          <DotSep />
           <span>{t('map_points_on_map', { count: markers.length })}</span>
-          {geocodeFailed > 0 ? <span>· {t('map_geocode_failed', { count: geocodeFailed })}</span> : null}
+          {geocodeFailed > 0 ? (
+            <>
+              <DotSep />
+              <span>{t('map_geocode_failed', { count: geocodeFailed })}</span>
+            </>
+          ) : null}
         </div>
       ) : null}
 

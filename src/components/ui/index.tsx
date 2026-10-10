@@ -120,6 +120,18 @@ export function Skeleton({ className = '' }: { className?: string }) {
   return <div className={`animate-pulse rounded-xl bg-slate-200 ${className}`} />;
 }
 
+/** Visually prominent separator between inline text fragments (flex row with items-center). */
+export function DotSep({ className = '' }: { className?: string }) {
+  return (
+    <span
+      className={`mx-2 inline-flex shrink-0 items-center justify-center self-center ${className}`}
+      aria-hidden
+    >
+      <span className="size-1.5 rounded-full bg-slate-400 sm:size-2" />
+    </span>
+  );
+}
+
 export function ModalFooter({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
     <div className={`mt-4 flex w-full flex-wrap items-center justify-center gap-2 ${className}`}>
@@ -138,7 +150,7 @@ export function Modal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-0 sm:items-center sm:p-6" role="presentation" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-0 sm:items-center sm:p-6" role="presentation">
       <div
         role="dialog"
         aria-modal="true"
@@ -148,7 +160,14 @@ export function Modal({
       >
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="text-lg font-semibold text-ink">{title}</h2>
-          <button type="button" onClick={onClose} className="rounded-lg px-2 py-1 text-sm text-muted hover:bg-canvas" aria-label="close">×</button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center text-3xl font-bold leading-none text-danger"
+            aria-label="close"
+          >
+            ×
+          </button>
         </div>
         {children}
       </div>
