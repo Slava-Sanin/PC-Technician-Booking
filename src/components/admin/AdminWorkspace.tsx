@@ -593,6 +593,10 @@ function CategoriesPanel({ isAdmin }: { isAdmin: boolean }) {
   const [sortColumn, setSortColumn] = useState<CategorySortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const rows = catalog.categories.filter((category) => showArchived || !category.archived_at);
+  const hasArchivedCategories = useMemo(
+    () => catalog.categories.some((category) => category.archived_at),
+    [catalog.categories],
+  );
 
   const serviceCount = useCallback(
     (categoryId: string) => catalog.services.filter((service) => service.category_id === categoryId && !service.archived_at).length,
@@ -639,7 +643,13 @@ function CategoriesPanel({ isAdmin }: { isAdmin: boolean }) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">{t('nav_categories')}</h1>
         <div className="flex gap-2">
-          <Button variant="ghost" onClick={() => setShowArchived((value) => !value)}>{t('showArchived')}</Button>
+          <Button
+            variant="ghost"
+            disabled={!hasArchivedCategories && !showArchived}
+            onClick={() => setShowArchived((value) => !value)}
+          >
+            {t('showArchived')}
+          </Button>
           {isAdmin ? <Button onClick={() => setOpen(true)}>{t('newCategory')}</Button> : null}
         </div>
       </div>
