@@ -115,12 +115,24 @@ export function CustomerBookingsPanel({
           {loading ? <p className="text-sm text-muted">{t('loading')}</p> : null}
           {!loading && bookings.length === 0 ? <p className="text-sm text-muted">{t('customerNoBookings')}</p> : null}
           <ul className="space-y-3">
-            {bookings.map((booking) => (
+            {bookings.map((booking) => {
+              const location = formatBookingLocation(booking.city, booking.address);
+              return (
               <li key={booking.id} className="rounded-xl border border-line p-3">
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
                     <p className="font-semibold">#{booking.booking_number}</p>
-                    <p className="flex flex-wrap items-center justify-center text-sm text-muted">{formatISODateToDisplay(booking.appointment_date)}<DotSep />{t(`status_${booking.status}`, { defaultValue: booking.status })}</p>
+                    <p className="flex flex-wrap items-center text-sm text-muted">
+                      {formatISODateToDisplay(booking.appointment_date)}
+                      <DotSep />
+                      {t(`status_${booking.status}`, { defaultValue: booking.status })}
+                      {editingId !== booking.id && location ? (
+                        <>
+                          <DotSep />
+                          <span dir="auto">{location}</span>
+                        </>
+                      ) : null}
+                    </p>
                   </div>
                   {canModify(booking.status) ? (
                     <div className="flex gap-2">
@@ -140,11 +152,10 @@ export function CustomerBookingsPanel({
                       <Button variant="ghost" onClick={() => setEditingId(null)}>{t('cancel')}</Button>
                     </div>
                   </div>
-                ) : (
-                  <p className="mt-2 text-sm" dir="auto">{formatBookingLocation(booking.city, booking.address)}</p>
-                )}
+                ) : null}
               </li>
-            ))}
+            );
+            })}
           </ul>
         </div>
       </Card>

@@ -57,6 +57,18 @@
     @apply -mx-3 -mt-3 mb-3 rounded-t-xl border-b border-blue-100 bg-blue-50 px-3 py-2 text-center text-sm font-semibold text-primary;
   }
 
+  .header-action-sector {
+    @apply relative flex min-w-0 flex-col items-center rounded-lg border border-line bg-canvas px-2 pb-1.5 pt-2 sm:px-2.5 sm:pb-2 sm:pt-2.5;
+  }
+
+  .header-action-sector-label {
+    @apply pointer-events-none absolute left-1/2 top-0 z-[1] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap bg-surface px-1 text-[9px] font-semibold uppercase leading-none tracking-wide text-muted sm:px-1.5 sm:text-[10px];
+  }
+
+  .header-action-sector-btn {
+    @apply rounded-md px-2 py-0.5 text-xs font-medium text-ink hover:bg-surface sm:px-2.5 sm:py-1 sm:text-sm;
+  }
+
   .form-control {
     @apply box-border block w-full max-w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-sm text-ink transition placeholder:text-muted disabled:cursor-not-allowed disabled:bg-canvas disabled:text-muted;
   }

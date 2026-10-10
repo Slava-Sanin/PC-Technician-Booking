@@ -779,16 +779,22 @@ function Shell({
             {subtitle ? <p className="hidden truncate text-xs text-muted sm:block">{subtitle}</p> : null}
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-4 sm:gap-6">
-            <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-end gap-2 pt-1.5 sm:gap-3 sm:pt-2">
+            <div className="header-action-sector">
+              <span className="header-action-sector-label">{t('headerSectorClients')}</span>
               {customer ? (
-                <button type="button" onClick={onOpenBookings} className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium hover:bg-canvas sm:text-sm">{t('customerMyBookings')}</button>
+                <button type="button" onClick={onOpenBookings} className="header-action-sector-btn">{t('customerMyBookings')}</button>
               ) : (
-                <button type="button" onClick={onOpenAuth} className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium hover:bg-canvas sm:text-sm">{t('customerAccount')}</button>
+                <button type="button" onClick={onOpenAuth} className="header-action-sector-btn">{t('customerAccount')}</button>
               )}
-              <button type="button" onClick={onOpenAdmin} className="rounded-lg border border-line px-2.5 py-1 text-xs font-medium hover:bg-canvas sm:text-sm">{t('admin')}</button>
             </div>
-            <LanguageSwitcher />
+            <div className="header-action-sector">
+              <span className="header-action-sector-label">{t('headerSectorStaff')}</span>
+              <button type="button" onClick={onOpenAdmin} className="header-action-sector-btn">{t('admin')}</button>
+            </div>
+            <div className="ms-3 sm:ms-5">
+              <LanguageSwitcher />
+            </div>
           </div>
         </div>
       </header>
