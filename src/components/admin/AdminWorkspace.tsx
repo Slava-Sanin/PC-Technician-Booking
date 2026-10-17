@@ -8,6 +8,7 @@ import { Alert, Badge, Button, Card, DotSep, DisplayDateInput, EmptyState, Field
 import { useConfirm } from '../ui/ConfirmProvider';
 import { useBookings } from '../../hooks/useBookings';
 import { useBookingSettings } from '../../hooks/useBookingSettings';
+import { fetchAdminCustomers } from '../../services/customerAdminService';
 import {
   createCategoryWithServices,
   fetchAdminCatalog,
@@ -35,6 +36,7 @@ import {
 import type { PublicBookingConfig, StaffProfile, WorkingHourDay } from '../../types/bookingSettings';
 import { AppointmentDateTimeField } from '../schedule/AppointmentDateTimeField';
 import { BOOKING_STATUSES, PAYMENT_STATUSES, type Booking, type BookingStatus, type EditableBookingField } from '../../types/booking';
+import type { AdminCustomer } from '../../types/customer';
 import { DEVICE_TYPES, OPERATING_SYSTEMS, PAYMENT_POLICIES, PRICE_TYPES, SERVICE_MODES, localized, type PaymentPolicy, type PriceType } from '../../types/catalog';
 import { isPublicCategory, isPublicService } from '../../utils/catalogRules';
 import { BUSINESS_TIME_ZONE, DISPLAY_DATETIME_HINT, formatAppointmentInZone, formatISODateToDisplay, getZonedParts, parseDisplayDate, parseDisplayDateTime, todayISOInTimeZone, zonedTimeToUtc } from '../../utils/dateTime';
@@ -46,9 +48,37 @@ const BookingAddressMapModal = lazy(() =>
   import('./BookingAddressMapModal').then((module) => ({ default: module.BookingAddressMapModal })),
 );
 
-type Panel = 'dashboard' | 'bookings' | 'calendar' | 'map' | 'categories' | 'services' | 'technicians' | 'schedule' | 'payments' | 'settings';
+type Panel =
+  | 'dashboard'
+  | 'bookings'
+  | 'customers'
+  | 'calendar'
+  | 'map'
+  | 'categories'
+  | 'services'
+  | 'technicians'
+  | 'schedule'
+  | 'payments'
+  | 'settings';
 
-const NAV: Panel[] = ['dashboard', 'bookings', 'calendar', 'map', 'categories', 'services', 'technicians', 'schedule', 'payments', 'settings'];
+const STAFF_NAV: Panel[] = [
+  'dashboard',
+  'bookings',
+  'calendar',
+  'map',
+  'categories',
+  'services',
+  'technicians',
+  'schedule',
+  'payments',
+  'settings',
+];
+
+function adminNav(isAdmin: boolean): Panel[] {
+  if (!isAdmin) return STAFF_NAV;
+  const index = STAFF_NAV.indexOf('bookings');
+  return [...STAFF_NAV.slice(0, index + 1), 'customers', ...STAFF_NAV.slice(index + 1)];
+}
 
 function civilDate(iso: string | null): string {
   if (!iso) return '';
@@ -73,12 +103,17 @@ export function AdminWorkspace({
   const { t } = useTranslation();
   const [panel, setPanel] = useState<Panel>('dashboard');
   const isAdmin = profile.role === 'admin';
+  const navItems = adminNav(isAdmin);
+
+  useEffect(() => {
+    if (!isAdmin && panel === 'customers') setPanel('dashboard');
+  }, [isAdmin, panel]);
 
   return (
     <div className="grid min-h-[calc(100vh-73px)] lg:grid-cols-[240px_minmax(0,1fr)]">
       <nav className="border-b border-line bg-surface p-3 lg:border-b-0 lg:border-e" aria-label={t('admin')}>
         <div className="flex gap-2 overflow-x-auto lg:flex-col">
-          {NAV.map((item) => (
+          {navItems.map((item) => (
             <button
               key={item}
               type="button"
@@ -93,6 +128,7 @@ export function AdminWorkspace({
       <div className="p-4 sm:p-6">
         {panel === 'dashboard' ? <Dashboard bookings={bookingsState.bookings} /> : null}
         {panel === 'bookings' ? <BookingsPanel state={bookingsState} scheduleConfig={settingsState.settings} /> : null}
+        {panel === 'customers' && isAdmin ? <CustomersPanel /> : null}
         {panel === 'calendar' ? <CalendarPanel bookings={bookingsState.bookings} /> : null}
         {panel === 'map' ? (
           <Suspense fallback={<p className="text-sm text-muted">{t('loading')}</p>}>
@@ -1244,6 +1280,147 @@ function ServiceForm({
         <Button onClick={() => void save()}>{t('save')}</Button>
       </ModalFooter>
     </Modal>
+  );
+}
+
+type CustomerSortColumn =
+  | 'first_name'
+  | 'last_name'
+  | 'phone'
+  | 'email'
+  | 'login_email'
+  | 'email_verified_at'
+  | 'phone_verified_at'
+  | 'created_at'
+  | 'updated_at'
+  | 'id';
+
+function CustomersPanel() {
+  const { t } = useTranslation();
+  const [rows, setRows] = useState<AdminCustomer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const [sortColumn, setSortColumn] = useState<CustomerSortColumn>('created_at');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  const refresh = useCallback(() => {
+    setLoading(true);
+    return fetchAdminCustomers()
+      .then((data) => setRows(data))
+      .catch(() => toast.error(t('fetchError')))
+      .finally(() => setLoading(false));
+  }, [t]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
+
+  const toggleSort = (column: CustomerSortColumn) => {
+    const next = toggleSortState(sortColumn, column, sortDirection);
+    setSortColumn(next.column);
+    setSortDirection(next.direction);
+  };
+
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return rows;
+    return rows.filter((row) => {
+      const haystack = [
+        row.first_name,
+        row.last_name,
+        row.phone,
+        row.email,
+        row.login_email,
+        row.id,
+        row.user_id,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [query, rows]);
+
+  const sortedRows = useMemo(() => {
+    return [...filtered].sort((left, right) => {
+      let leftValue: string | number;
+      let rightValue: string | number;
+      if (sortColumn === 'email_verified_at' || sortColumn === 'phone_verified_at') {
+        leftValue = left[sortColumn] ? 1 : 0;
+        rightValue = right[sortColumn] ? 1 : 0;
+      } else if (sortColumn === 'created_at' || sortColumn === 'updated_at') {
+        leftValue = new Date(left[sortColumn]).getTime();
+        rightValue = new Date(right[sortColumn]).getTime();
+      } else {
+        leftValue = (left[sortColumn] ?? '').toString().toLowerCase();
+        rightValue = (right[sortColumn] ?? '').toString().toLowerCase();
+      }
+      return compareSortValues(leftValue, rightValue, sortDirection);
+    });
+  }, [filtered, sortColumn, sortDirection]);
+
+  const formatWhen = (iso: string | null) => (
+    iso ? formatAppointmentInZone(iso, BUSINESS_TIME_ZONE) : '—'
+  );
+
+  const verifiedLabel = (iso: string | null) => (iso ? t('verifiedYes') : t('verifiedNo'));
+
+  const headClass = 'px-3 py-3 text-xs uppercase tracking-wider whitespace-nowrap';
+
+  return (
+    <div className="space-y-4">
+      <h1 className="text-2xl font-semibold">{t('nav_customers')}</h1>
+      <Input
+        value={query}
+        onChange={(event) => setQuery(event.target.value)}
+        placeholder={t('search')}
+        aria-label={t('search')}
+      />
+      {loading ? <p className="text-sm text-muted">{t('loading')}</p> : null}
+      {!loading && sortedRows.length === 0 ? (
+        <EmptyState title={t('noCustomers')} />
+      ) : null}
+      {!loading && sortedRows.length > 0 ? (
+        <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+          <div className="table-scroll-pane">
+            <table className="table-cols-center w-max min-w-full text-sm">
+              <thead>
+                <tr>
+                  <SortableTableHead column="first_name" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('firstName')} className={headClass} />
+                  <SortableTableHead column="last_name" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('lastName')} className={headClass} />
+                  <SortableTableHead column="phone" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('phone')} className={headClass} />
+                  <SortableTableHead column="email" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('email')} className={headClass} />
+                  <SortableTableHead column="login_email" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('loginEmail')} className={headClass} />
+                  <SortableTableHead column="email_verified_at" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('emailVerified')} className={headClass} />
+                  <SortableTableHead column="phone_verified_at" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('phoneVerified')} className={headClass} />
+                  <SortableTableHead column="created_at" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('registeredAt')} className={headClass} />
+                  <SortableTableHead column="updated_at" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('updatedAt')} className={headClass} />
+                  <SortableTableHead column="id" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('customerId')} className={headClass} />
+                  <TableHead label={t('customerUserId')} className={headClass} />
+                </tr>
+              </thead>
+              <tbody>
+                {sortedRows.map((row) => (
+                  <tr key={row.id}>
+                    <td className="px-3 py-2">{row.first_name}</td>
+                    <td className="px-3 py-2">{row.last_name}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{row.phone ?? '—'}</td>
+                    <td className="table-cell-text-start px-3 py-2">{row.email ?? '—'}</td>
+                    <td className="table-cell-text-start px-3 py-2">{row.login_email}</td>
+                    <td className="px-3 py-2">{verifiedLabel(row.email_verified_at)}</td>
+                    <td className="px-3 py-2">{verifiedLabel(row.phone_verified_at)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{formatWhen(row.created_at)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{formatWhen(row.updated_at)}</td>
+                    <td className="table-cell-text-start px-3 py-2 font-mono text-xs">{row.id}</td>
+                    <td className="table-cell-text-start px-3 py-2 font-mono text-xs">{row.user_id}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : null}
+    </div>
   );
 }
 

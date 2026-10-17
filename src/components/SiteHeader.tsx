@@ -79,13 +79,13 @@ export function SiteHeader({
                 </p>
                 <div className="header-action-sector-actions">
                   {area === 'booking' ? (
-                    <SectorButton onClick={onStaffAdmin}>{t('admin')}</SectorButton>
+                    <SectorButton onClick={onStaffAdmin}>{t('staffEntry')}</SectorButton>
                   ) : null}
                   <SectorButton className="text-danger" onClick={onStaffLogout}>{t('logout')}</SectorButton>
                 </div>
               </>
             ) : area === 'booking' ? (
-              <SectorButton onClick={onStaffAdmin}>{t('admin')}</SectorButton>
+              <SectorButton onClick={onStaffAdmin}>{t('staffEntry')}</SectorButton>
             ) : null}
           </HeaderSector>
           <div className="ms-1 flex items-center gap-1 self-center sm:ms-3 sm:gap-1.5">
