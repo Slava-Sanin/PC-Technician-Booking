@@ -189,7 +189,7 @@ export function SubscriptionsAdminPanel({ isAdmin }: { isAdmin: boolean }) {
             <p className="text-xs text-muted">{t('subscriptionDiscountsHint')}</p>
             {tiers.length === 0 ? <p className="text-sm text-muted">{t('subscriptionNoTiers')}</p> : null}
             {tiers.map((tier, index) => (
-              <div key={index} className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+              <div key={index} className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]">
                 <Field label={t('subscriptionFromMonths')}>
                   <Input type="number" min={3} max={1200} value={tier.minMonths} onChange={(event) => updateTier(index, { minMonths: Number(event.target.value) })} />
                 </Field>

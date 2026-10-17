@@ -198,7 +198,7 @@ export function AdminView({ onCloseAdmin, staffRegisterToken = null, subscriptio
 
   if (access === 'anonymous' || access === 'register') {
     return (
-      <div className="flex min-h-screen flex-col bg-canvas">
+      <div className="flex min-h-dvh min-w-0 flex-col overflow-x-clip bg-canvas">
         <Toaster position="top-right" />
         <SiteHeader
           area="admin"
@@ -243,7 +243,7 @@ export function AdminView({ onCloseAdmin, staffRegisterToken = null, subscriptio
 
   if (access === 'subscription_required') {
     return (
-      <div className="flex min-h-screen flex-col bg-canvas">
+      <div className="flex min-h-dvh min-w-0 flex-col overflow-x-clip bg-canvas">
         <Toaster position="top-right" />
         <SiteHeader
           area="admin"
@@ -265,7 +265,7 @@ export function AdminView({ onCloseAdmin, staffRegisterToken = null, subscriptio
   }
 
   return (
-    <div className="min-h-screen bg-canvas">
+      <div className="min-h-dvh min-w-0 overflow-x-clip bg-canvas">
       <Toaster position="top-right" />
       <SiteHeader
         area="admin"

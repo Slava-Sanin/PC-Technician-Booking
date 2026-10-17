@@ -45,16 +45,20 @@ export function SiteHeader({
 
   return (
     <header className="shrink-0 border-b border-line bg-hd text-hdt">
-      <div className="flex w-full items-center justify-between gap-3 px-3 py-2 sm:px-5 xl:px-8">
-        <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
-          <BrandLogo />
+      <div className="flex w-full flex-wrap items-center gap-x-2 gap-y-2 px-3 py-2 sm:gap-x-3 sm:px-5 lg:flex-nowrap xl:px-8">
+        <div className="order-1 flex min-w-0 flex-1 items-center gap-2.5 sm:gap-3">
+          <BrandLogo className="h-11 w-auto shrink-0 object-contain sm:h-14 lg:h-16" />
           <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase leading-none tracking-wide text-hdt/70">{t('brandKicker')}</p>
-            <h1 className="truncate text-base font-semibold leading-tight text-hdt sm:text-lg">{t('title')}</h1>
-            {subtitle ? <p className="hidden truncate text-xs text-hdt/75 sm:block">{subtitle}</p> : null}
+            <h1 className="text-balance break-words text-base font-semibold leading-tight text-hdt sm:text-lg">{t('title')}</h1>
+            {subtitle ? <p className="hidden break-words text-xs text-hdt/75 sm:block">{subtitle}</p> : null}
           </div>
         </div>
-        <div className="flex shrink-0 items-stretch gap-2 sm:gap-3">
+        <div className="order-2 flex shrink-0 items-center gap-1 self-center lg:order-3 lg:ms-1">
+          <ThemeSwitcher />
+          <LanguageSwitcher />
+        </div>
+        <div className="order-3 flex w-full min-w-0 basis-full items-stretch gap-1.5 sm:justify-end sm:gap-2 lg:order-2 lg:ms-0 lg:w-auto lg:basis-auto lg:justify-start">
           <HeaderSector label={t('headerSectorClients')}>
             {customer ? (
               <>
@@ -88,10 +92,6 @@ export function SiteHeader({
               <SectorButton onClick={onStaffAdmin}>{t('staffEntry')}</SectorButton>
             ) : null}
           </HeaderSector>
-          <div className="ms-1 flex items-center gap-1 self-center sm:ms-3 sm:gap-1.5">
-            <ThemeSwitcher />
-            <LanguageSwitcher />
-          </div>
         </div>
       </div>
     </header>

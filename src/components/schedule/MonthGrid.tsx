@@ -32,12 +32,12 @@ export function MonthGrid({
 
   return (
     <div>
-      <div className="mb-2 flex items-center justify-between">
-        <button type="button" className="rounded-lg p-2 hover:bg-canvas" onClick={() => onMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} aria-label="previous">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <button type="button" className="shrink-0 rounded-lg p-2 hover:bg-canvas" onClick={() => onMonth(new Date(month.getFullYear(), month.getMonth() - 1, 1))} aria-label="previous">
           <ChevronLeft className="h-4 w-4 rtl:rotate-180" />
         </button>
-        <p className="font-semibold text-ink">{label}</p>
-        <button type="button" className="rounded-lg p-2 hover:bg-canvas" onClick={() => onMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} aria-label="next">
+        <p className="min-w-0 truncate text-center font-semibold text-ink">{label}</p>
+        <button type="button" className="shrink-0 rounded-lg p-2 hover:bg-canvas" onClick={() => onMonth(new Date(month.getFullYear(), month.getMonth() + 1, 1))} aria-label="next">
           <ChevronRight className="h-4 w-4 rtl:rotate-180" />
         </button>
       </div>
@@ -54,7 +54,7 @@ export function MonthGrid({
               type="button"
               disabled={isDisabled}
               onClick={() => onSelect(iso)}
-              className={`h-8 rounded-md text-xs font-medium ${isSelected ? 'bg-primary text-white' : 'hover:bg-highlight'} disabled:cursor-not-allowed disabled:text-muted/50`}
+              className={`h-10 rounded-md text-sm font-medium sm:h-8 sm:text-xs ${isSelected ? 'bg-primary text-white' : 'hover:bg-highlight'} disabled:cursor-not-allowed disabled:text-muted/50`}
             >
               {index + 1}
             </button>

@@ -7,6 +7,7 @@
 @layer base {
   html {
     font-family: theme('fontFamily.sans');
+    overflow-x: clip;
   }
 
   @media (prefers-reduced-motion: no-preference) {
@@ -20,6 +21,12 @@
         border-color 150ms ease,
         box-shadow 150ms ease;
     }
+  }
+
+  body,
+  #root {
+    min-width: 0;
+    overflow-x: clip;
   }
 
   body {
@@ -105,7 +112,7 @@
   }
 
   .header-action-sector {
-    @apply relative flex min-h-[2.75rem] min-w-0 flex-col items-center justify-center gap-0.5 self-stretch rounded-lg border border-line bg-canvas px-2 pb-1.5 pt-2 sm:min-h-[3rem] sm:px-2.5 sm:pb-2 sm:pt-2.5;
+    @apply relative flex min-h-[2.5rem] min-w-[7.25rem] flex-1 flex-col items-center justify-center gap-0.5 self-stretch rounded-lg border border-line bg-canvas px-1.5 pb-1.5 pt-2 sm:min-h-[3rem] sm:w-auto sm:flex-none sm:px-2.5 sm:pb-2 sm:pt-2.5;
   }
 
   .header-action-sector-label {
@@ -113,7 +120,7 @@
   }
 
   .header-action-sector-btn {
-    @apply rounded-md px-2 py-0.5 text-xs font-medium text-inherit hover:bg-band sm:px-2.5 sm:py-1 sm:text-sm;
+    @apply max-w-full whitespace-normal rounded-md px-1.5 py-0.5 text-center text-[11px] font-medium leading-tight text-inherit hover:bg-band sm:px-2.5 sm:py-1 sm:text-sm;
   }
 
   .header-action-sector-status {
@@ -121,7 +128,7 @@
   }
 
   .header-action-sector-actions {
-    @apply flex flex-wrap items-center justify-center gap-0.5 sm:gap-1;
+    @apply flex w-full min-w-0 flex-wrap items-center justify-center gap-0.5 sm:gap-1;
   }
 
   .form-control {

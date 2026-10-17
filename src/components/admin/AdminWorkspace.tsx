@@ -126,9 +126,9 @@ export function AdminWorkspace({
   }, [isAdmin, panel]);
 
   return (
-    <div className="grid min-h-[calc(100vh-73px)] lg:grid-cols-[240px_minmax(0,1fr)]">
-      <nav className="border-b border-line bg-surface p-3 lg:border-b-0 lg:border-e" aria-label={t('admin')}>
-        <div className="flex gap-2 overflow-x-auto lg:flex-col">
+    <div className="grid min-w-0 lg:grid-cols-[minmax(0,15rem)_minmax(0,1fr)]">
+      <nav className="min-w-0 border-b border-line bg-surface p-3 lg:border-b-0 lg:border-e" aria-label={t('admin')}>
+        <div className="flex min-w-0 gap-2 overflow-x-auto lg:flex-col">
           {navItems.map((item) => (
             <button
               key={item}
@@ -141,7 +141,7 @@ export function AdminWorkspace({
           ))}
         </div>
       </nav>
-      <div className="p-4 sm:p-6">
+      <div className="min-w-0 p-3 sm:p-6">
         {panel === 'dashboard' ? <Dashboard bookings={bookingsState.bookings} /> : null}
         {panel === 'bookings' ? <BookingsPanel state={bookingsState} scheduleConfig={settingsState.settings} /> : null}
         {panel === 'customers' && isAdmin ? <CustomersPanel /> : null}
@@ -1844,7 +1844,7 @@ function PaymentsPanel({ isAdmin }: { isAdmin: boolean }) {
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">{t('nav_payments')}</h1>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {(['transactions', 'methods', 'bank'] as const).map((item) => (
           <Button key={item} variant={tab === item ? 'primary' : 'ghost'} onClick={() => setTab(item)}>{t(`paytab_${item}`)}</Button>
         ))}
@@ -1858,7 +1858,7 @@ function PaymentsPanel({ isAdmin }: { isAdmin: boolean }) {
           </div>
           {visible.length === 0 ? <EmptyState title={t('noPayments')} /> : null}
           {visible.map((payment) => (
-            <Card key={payment.id} className="grid gap-2 p-4 text-sm md:grid-cols-6">
+            <Card key={payment.id} className="grid gap-2 p-4 text-sm sm:grid-cols-2 xl:grid-cols-6">
               <span>{payment.bookings?.booking_number}</span>
               <span>{payment.bookings?.first_name} {payment.bookings?.last_name}</span>
               <span>{payment.payment_methods ? localized({ ru: payment.payment_methods.name_ru, he: payment.payment_methods.name_he, en: payment.payment_methods.name_en }, i18n.language) : payment.provider}</span>
