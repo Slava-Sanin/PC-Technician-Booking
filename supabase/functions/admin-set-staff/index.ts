@@ -134,6 +134,7 @@ Deno.serve(async (req) => {
       p_last_name: optionalText(body.lastName, 120),
       p_phone: optionalText(body.phone, 32),
       p_address: optionalText(body.address, 500),
+      p_subscription_exempt: typeof body.subscriptionExempt === 'boolean' ? body.subscriptionExempt : null,
     };
     let result = await rpcAsUser('admin_set_staff', rpcArgs, authorization);
 

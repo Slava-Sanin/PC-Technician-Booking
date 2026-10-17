@@ -74,6 +74,7 @@ export interface StaffRow {
   last_name: string | null;
   phone: string | null;
   address: string | null;
+  subscription_exempt: boolean;
 }
 
 export interface StaffProfileInput {
@@ -81,6 +82,7 @@ export interface StaffProfileInput {
   lastName?: string | null;
   phone?: string | null;
   address?: string | null;
+  subscriptionExempt?: boolean | null;
 }
 
 export interface ServiceDraft {
@@ -268,10 +270,11 @@ export async function reviewPayment(paymentId: string, decision: 'paid' | 'faile
 export async function fetchStaff(): Promise<StaffRow[]> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('user_id, role, active, email, first_name, last_name, phone, address')
+    .select('user_id, role, active, email, first_name, last_name, phone, address, subscription_exempt')
     .order('created_at');
   if (error) throw error;
-  return (data ?? []) as StaffRow[];
+  return ((data ?? []) as Array<Omit<StaffRow, 'subscription_exempt'> & { subscription_exempt?: boolean | null }>)
+    .map((row) => ({ ...row, subscription_exempt: row.subscription_exempt === true }));
 }
 
 function readFunctionErrorCode(payload: unknown): string | null {
@@ -321,6 +324,7 @@ export async function setStaff(
     phone: profile?.phone ?? null,
     address: profile?.address ?? null,
   };
+  if (typeof profile?.subscriptionExempt === 'boolean') body.subscriptionExempt = profile.subscriptionExempt;
   if (password?.trim()) body.password = password.trim();
   await invokeStaffFunction(body);
 }

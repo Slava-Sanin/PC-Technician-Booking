@@ -29,3 +29,9 @@ verify_jwt = false
 
 [functions.staff-auth]
 verify_jwt = false
+
+[functions.technician-subscription]
+verify_jwt = false
+
+[functions.cardcom-webhook]
+verify_jwt = false

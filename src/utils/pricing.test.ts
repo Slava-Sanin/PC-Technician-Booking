@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bookingTotal, formatDurationMinutes, formatMoney, lineTotal, sumDuration } from './pricing';
+import { bookingTotal, formatDurationMinutes, formatMoney, lineTotal, subscriptionQuote, subscriptionRefund, sumDuration } from './pricing';
 
 describe('price and duration', () => {
   it('sums service durations and prices several services independently', () => {
@@ -33,5 +33,33 @@ describe('price and duration', () => {
     const formatted = formatMoney(180, 'ILS', 'en');
     expect(formatted).toContain('180');
     expect(formatted).not.toMatch(/\$/);
+  });
+});
+
+describe('technician subscription pricing', () => {
+  const tiers = [
+    { minMonths: 3, discountPercent: 5 },
+    { minMonths: 6, discountPercent: 10 },
+    { minMonths: 12, discountPercent: 20 },
+  ];
+
+  it('applies the highest tier whose threshold is reached, none below three months', () => {
+    expect(subscriptionQuote(1, 99, tiers)).toMatchObject({ discountPercent: 0, amountTotal: 99, fullPrice: 99 });
+    expect(subscriptionQuote(2, 99, tiers).discountPercent).toBe(0);
+    expect(subscriptionQuote(3, 99, tiers)).toMatchObject({ discountPercent: 5, amountTotal: 282.15 });
+    expect(subscriptionQuote(5, 99, tiers).discountPercent).toBe(5);
+    expect(subscriptionQuote(6, 100, tiers)).toMatchObject({ discountPercent: 10, amountTotal: 540 });
+    expect(subscriptionQuote(24, 100, tiers)).toMatchObject({ discountPercent: 20, amountTotal: 1920, fullPrice: 2400 });
+    expect(subscriptionQuote(0, 100, tiers).months).toBe(1);
+  });
+
+  it('refunds unused whole days of the paid amount; the started day is used', () => {
+    const start = '2026-01-01T10:00:00Z';
+    const end = '2026-01-31T10:00:00Z';
+    expect(subscriptionRefund(300, start, end, '2026-01-01T10:00:00Z')).toEqual({ refundAmount: 300, totalDays: 30, remainingDays: 30 });
+    expect(subscriptionRefund(300, start, end, '2026-01-01T12:00:00Z')).toEqual({ refundAmount: 290, totalDays: 30, remainingDays: 29 });
+    expect(subscriptionRefund(300, start, end, '2026-01-11T10:00:00Z')).toEqual({ refundAmount: 200, totalDays: 30, remainingDays: 20 });
+    expect(subscriptionRefund(300, start, end, '2026-02-15T00:00:00Z')).toEqual({ refundAmount: 0, totalDays: 30, remainingDays: 0 });
+    expect(subscriptionRefund(300, end, start).refundAmount).toBe(0);
   });
 });

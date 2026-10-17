@@ -71,6 +71,32 @@ React (Vite)
 
 Роли: `admin`, `technician`. Новые пользователи Auth не становятся администраторами. Последнего активного администратора нельзя снять через `admin_set_staff`.
 
+## Technician subscriptions (Cardcom)
+
+Техник может зарегистрироваться сам: форма входа → «Регистрация техника» → подтверждение по email (`staff-auth`: `registerStart` / `registerVerify`, purpose `staff_registration`). Профиль создаётся с ролью `technician` и `subscription_exempt = false`.
+
+Доступ к данным даёт `is_staff()`: администратор — всегда; техник — только при `profiles.subscription_exempt = true` или активном абонементе (`technician_subscriptions.status = 'active' AND ends_at > now()`). Техники, созданные администратором (и существовавшие до миграции), получают `subscription_exempt = true`; флаг снимается в разделе «Техники».
+
+Тариф: `subscription_plans` (цена месяца, валюта, включён) и `subscription_discounts` (скидка от N месяцев, N ≥ 3). Техник выбирает любое число месяцев от 1; цена = N × месяц × (1 − скидка). Снимок цены и скидки хранится в заказе.
+
+Оплата — Cardcom API v11, hosted page:
+
+```text
+technician-subscription createCheckout
+  → create_subscription_order (pending_payment)
+  → POST /api/v11/LowProfile/Create (ReturnValue = id заказа, WebHookUrl = cardcom-webhook)
+  → redirect на Url
+Cardcom → cardcom-webhook → GET /api/v11/LowProfile/GetLpResult → apply_subscription_payment (идемпотентно)
+```
+
+Тело webhook не является источником правды: результат всегда перечитывается через `GetLpResult`. Резерв на случай задержки webhook — действие `sync` после возврата на сайт (`?subscription=success`).
+
+Отмена в любой момент: `cancel` → `compute_subscription_refund` (пропорционально неиспользованным дням от фактически оплаченной суммы, начатый день считается использованным) → `POST /api/v11/Transactions/RefundByTransactionId` → `mark_subscription_cancelled`. Если возврат не прошёл, абонемент всё равно закрывается, а `refund_status = 'failed'` виден администратору в списке абонементов.
+
+Секреты: `CARDCOM_TERMINAL_NUMBER`, `CARDCOM_API_NAME`, `CARDCOM_API_PASSWORD`. Без них оплата недоступна (`PAYMENT_UNAVAILABLE`), регистрация и вход работают. Для webhook нужен публичный URL проекта Supabase (localhost Cardcom не принимает).
+
+Раздел «Выплаты» (только администратор): куда администратор хочет получать деньги — банковский счёт или карта. Номер карты хранится в Supabase Vault, в таблице `admin_payout_profiles` — только id секрета и последние 4 цифры; CVV не запрашивается. Эти реквизиты справочные: фактические выплаты с терминала Cardcom настраиваются в кабинете Cardcom.
+
 ## Payments
 
 Способы: Bit, PayBox, Paysend, PayPal, Credit Card, Bank Transfer. Каждый можно выключить. Исторические платежи при этом остаются.
@@ -117,6 +143,9 @@ React (Vite)
 | `get-availability` | слоты на дату или месяц |
 | `create-booking` | проверка, заявка, оплата, SMS |
 | `payment-webhook` | HMAC `x-payment-signature`, идемпотентность |
+| `staff-auth` | вход и регистрация техников |
+| `technician-subscription` | абонемент техника: `state`, `quote`, `createCheckout`, `sync`, `abandon`, `cancel` |
+| `cardcom-webhook` | отчёт Cardcom о сделке, проверка через `GetLpResult` |
 | `send-sms` | закрыта |
 
 ## Environment variables
@@ -144,6 +173,9 @@ PAYMENT_WEBHOOK_SECRET
 CARD_CHECKOUT_SECRET
 PAYPAL_CLIENT_ID
 PAYPAL_CLIENT_SECRET
+CARDCOM_TERMINAL_NUMBER
+CARDCOM_API_NAME
+CARDCOM_API_PASSWORD
 ```
 
 Опционально для локальной отладки без почты: `VERIFICATION_LOG_CODES=true` (коды видны в логах Edge Function).

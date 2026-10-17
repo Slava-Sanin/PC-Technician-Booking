@@ -2,6 +2,8 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react
 import { ArrowDown, ArrowUp, MapPin } from 'lucide-react';
 import { BookingTable } from './BookingTable';
 import { compareSortValues, SortableTableHead, TableHead, toggleSortState, type SortDirection } from './sortableTableHead';
+import { SubscriptionPanel } from './SubscriptionPanel';
+import { PayoutsPanel, SubscriptionsAdminPanel } from './SubscriptionAdminPanels';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'react-hot-toast';
 import { Alert, Badge, Button, Card, DotSep, DisplayDateInput, EmptyState, Field, Input, Modal, ModalFooter, Select, Switch, Textarea } from '../ui';
@@ -59,6 +61,9 @@ type Panel =
   | 'technicians'
   | 'schedule'
   | 'payments'
+  | 'subscription'
+  | 'subscriptions'
+  | 'payouts'
   | 'settings';
 
 const STAFF_NAV: Panel[] = [
@@ -74,10 +79,18 @@ const STAFF_NAV: Panel[] = [
   'settings',
 ];
 
+const ADMIN_ONLY: Panel[] = ['customers', 'subscriptions', 'payouts'];
+const TECHNICIAN_ONLY: Panel[] = ['subscription'];
+
 function adminNav(isAdmin: boolean): Panel[] {
-  if (!isAdmin) return STAFF_NAV;
-  const index = STAFF_NAV.indexOf('bookings');
-  return [...STAFF_NAV.slice(0, index + 1), 'customers', ...STAFF_NAV.slice(index + 1)];
+  if (!isAdmin) {
+    const index = STAFF_NAV.indexOf('payments');
+    return [...STAFF_NAV.slice(0, index + 1), 'subscription', ...STAFF_NAV.slice(index + 1)];
+  }
+  const bookingsIndex = STAFF_NAV.indexOf('bookings');
+  const withCustomers = [...STAFF_NAV.slice(0, bookingsIndex + 1), 'customers' as Panel, ...STAFF_NAV.slice(bookingsIndex + 1)];
+  const paymentsIndex = withCustomers.indexOf('payments');
+  return [...withCustomers.slice(0, paymentsIndex + 1), 'subscriptions', 'payouts', ...withCustomers.slice(paymentsIndex + 1)];
 }
 
 function civilDate(iso: string | null): string {
@@ -95,10 +108,12 @@ export function AdminWorkspace({
   profile,
   bookingsState,
   settingsState,
+  onSubscriptionAccessChanged,
 }: {
   profile: StaffProfile;
   bookingsState: ReturnType<typeof useBookings>;
   settingsState: ReturnType<typeof useBookingSettings>;
+  onSubscriptionAccessChanged?: (hasAccess: boolean) => void;
 }) {
   const { t } = useTranslation();
   const [panel, setPanel] = useState<Panel>('dashboard');
@@ -106,7 +121,8 @@ export function AdminWorkspace({
   const navItems = adminNav(isAdmin);
 
   useEffect(() => {
-    if (!isAdmin && panel === 'customers') setPanel('dashboard');
+    if (!isAdmin && ADMIN_ONLY.includes(panel)) setPanel('dashboard');
+    if (isAdmin && TECHNICIAN_ONLY.includes(panel)) setPanel('dashboard');
   }, [isAdmin, panel]);
 
   return (
@@ -140,6 +156,9 @@ export function AdminWorkspace({
         {panel === 'technicians' ? <StaffPanel isAdmin={isAdmin} /> : null}
         {panel === 'schedule' ? <SchedulePanel state={settingsState} isAdmin={isAdmin} /> : null}
         {panel === 'payments' ? <PaymentsPanel isAdmin={isAdmin} /> : null}
+        {panel === 'subscription' && !isAdmin ? <SubscriptionPanel embedded onAccessChanged={onSubscriptionAccessChanged} /> : null}
+        {panel === 'subscriptions' && isAdmin ? <SubscriptionsAdminPanel isAdmin={isAdmin} /> : null}
+        {panel === 'payouts' && isAdmin ? <PayoutsPanel isAdmin={isAdmin} /> : null}
         {panel === 'settings' ? <SettingsPanel state={settingsState} isAdmin={isAdmin} /> : null}
       </div>
     </div>
@@ -1424,15 +1443,16 @@ function CustomersPanel() {
   );
 }
 
-type StaffSortColumn = 'first_name' | 'last_name' | 'phone' | 'address' | 'email' | 'role' | 'visible';
+type StaffSortColumn = 'first_name' | 'last_name' | 'phone' | 'address' | 'email' | 'role' | 'visible' | 'subscription_exempt';
 type StaffTextField = 'first_name' | 'last_name' | 'phone' | 'address';
 
-function staffProfileFields(row: Pick<StaffRow, 'first_name' | 'last_name' | 'phone' | 'address'>): StaffProfileInput {
+function staffProfileFields(row: Pick<StaffRow, 'first_name' | 'last_name' | 'phone' | 'address' | 'subscription_exempt'>): StaffProfileInput {
   return {
     firstName: row.first_name,
     lastName: row.last_name,
     phone: row.phone,
     address: row.address,
+    subscriptionExempt: row.subscription_exempt,
   };
 }
 
@@ -1470,6 +1490,9 @@ function StaffPanel({ isAdmin }: { isAdmin: boolean }) {
       } else if (sortColumn === 'visible') {
         leftValue = left.active;
         rightValue = right.active;
+      } else if (sortColumn === 'subscription_exempt') {
+        leftValue = left.subscription_exempt;
+        rightValue = right.subscription_exempt;
       } else {
         leftValue = (left[sortColumn] ?? '').toLowerCase();
         rightValue = (right[sortColumn] ?? '').toLowerCase();
@@ -1554,6 +1577,7 @@ function StaffPanel({ isAdmin }: { isAdmin: boolean }) {
                 <SortableTableHead column="email" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('email')} className={headClass} />
                 <SortableTableHead column="role" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('role')} className={headClass} />
                 <SortableTableHead column="visible" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('visible')} className={headClass} />
+                <SortableTableHead column="subscription_exempt" activeColumn={sortColumn} direction={sortDirection} onSort={toggleSort} label={t('subscriptionExempt')} className={headClass} />
               </tr>
             </thead>
             <tbody>
@@ -1597,6 +1621,20 @@ function StaffPanel({ isAdmin }: { isAdmin: boolean }) {
                         persistStaff(row, { active: checked });
                       }}
                     />
+                  </td>
+                  <td className="px-3 py-3">
+                    {row.role === 'technician' ? (
+                      <Switch
+                        checked={row.subscription_exempt}
+                        label={t('subscriptionExempt')}
+                        onChange={(checked) => {
+                          if (!isAdmin) return;
+                          persistStaff(row, { subscription_exempt: checked });
+                        }}
+                      />
+                    ) : (
+                      <span className="text-muted">—</span>
+                    )}
                   </td>
                 </tr>
               ))}

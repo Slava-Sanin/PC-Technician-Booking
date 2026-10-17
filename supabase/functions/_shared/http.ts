@@ -39,6 +39,13 @@ export function statusForCode(code: string): number {
       return 400;
     case 'PAYMENT_FAILED':
       return 402;
+    case 'PAYMENT_UNAVAILABLE':
+      return 503;
+    case 'SUBSCRIPTION_REQUIRED':
+      return 402;
+    case 'SUBSCRIPTION_ACTIVE':
+    case 'SUBSCRIPTION_NOT_ACTIVE':
+      return 409;
     case 'RATE_LIMITED':
       return 429;
     case 'VERIFICATION_EXPIRED':

@@ -5,6 +5,7 @@ interface ProfileRow {
   user_id: string;
   role: 'admin' | 'technician';
   active: boolean;
+  subscription_exempt?: boolean | null;
 }
 
 export async function fetchMyProfile(): Promise<StaffProfile | null> {
@@ -14,7 +15,7 @@ export async function fetchMyProfile(): Promise<StaffProfile | null> {
 
   const { data, error } = await supabase
     .from('profiles')
-    .select('user_id, role, active')
+    .select('user_id, role, active, subscription_exempt')
     .eq('user_id', userData.user.id)
     .maybeSingle();
 
@@ -28,9 +29,15 @@ export async function fetchMyProfile(): Promise<StaffProfile | null> {
     userId: row.user_id,
     role: row.role,
     active: row.active,
+    subscriptionExempt: row.subscription_exempt === true,
   };
 }
 
 export function isActiveStaff(profile: StaffProfile | null): boolean {
   return Boolean(profile && profile.active && (profile.role === 'admin' || profile.role === 'technician'));
+}
+
+/** Technicians need a paid subscription unless exempted; administrators never do. */
+export function needsSubscription(profile: StaffProfile | null): boolean {
+  return Boolean(profile && profile.active && profile.role === 'technician' && !profile.subscriptionExempt);
 }

@@ -40,6 +40,58 @@ export function bookingTotal(lines: Array<{ total: number | null }>): number | n
   return Math.round(sum * 100) / 100;
 }
 
+export interface SubscriptionQuoteResult {
+  months: number;
+  monthlyPrice: number;
+  discountPercent: number;
+  amountTotal: number;
+  fullPrice: number;
+}
+
+/** Mirrors public.quote_subscription: the tier with the largest minMonths <= months wins. */
+export function subscriptionQuote(
+  months: number,
+  monthlyPrice: number,
+  tiers: Array<{ minMonths: number; discountPercent: number }>,
+): SubscriptionQuoteResult {
+  const safeMonths = Number.isInteger(months) && months >= 1 ? months : 1;
+  const tier = [...tiers]
+    .filter((item) => item.minMonths <= safeMonths)
+    .sort((left, right) => right.minMonths - left.minMonths)[0];
+  const discountPercent = tier ? tier.discountPercent : 0;
+  const fullPrice = Math.round(safeMonths * monthlyPrice * 100) / 100;
+  const amountTotal = Math.round(safeMonths * monthlyPrice * (1 - discountPercent / 100) * 100) / 100;
+  return { months: safeMonths, monthlyPrice, discountPercent, amountTotal, fullPrice };
+}
+
+export interface SubscriptionRefundResult {
+  refundAmount: number;
+  totalDays: number;
+  remainingDays: number;
+}
+
+const DAY_MS = 86_400_000;
+
+/** Mirrors public.subscription_refund_amount: whole days, the started day counts as used. */
+export function subscriptionRefund(
+  amountTotal: number,
+  startsAt: Date | string,
+  endsAt: Date | string,
+  now: Date | string = new Date(),
+): SubscriptionRefundResult {
+  const start = new Date(startsAt).getTime();
+  const end = new Date(endsAt).getTime();
+  const current = new Date(now).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(end) || !Number.isFinite(current) || end <= start) {
+    return { refundAmount: 0, totalDays: 0, remainingDays: 0 };
+  }
+  const totalDays = Math.max(Math.ceil((end - start) / DAY_MS), 1);
+  const usedDays = Math.max(Math.ceil((current - start) / DAY_MS), 0);
+  const remainingDays = Math.max(totalDays - usedDays, 0);
+  const refundAmount = Math.round((amountTotal * remainingDays / totalDays) * 100) / 100;
+  return { refundAmount, totalDays, remainingDays };
+}
+
 export function formatMoney(amount: number, currency: string, locale: string): string {
   const language = locale.startsWith('he') ? 'he-IL' : locale.startsWith('ru') ? 'ru-RU' : 'en-IL';
   return new Intl.NumberFormat(language, {

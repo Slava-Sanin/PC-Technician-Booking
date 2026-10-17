@@ -28,4 +28,5 @@ export interface StaffProfile {
   userId: string;
   role: 'admin' | 'technician';
   active: boolean;
+  subscriptionExempt: boolean;
 }
