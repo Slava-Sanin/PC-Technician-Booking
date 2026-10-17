@@ -73,13 +73,12 @@ const STAFF_NAV: Panel[] = [
   'map',
   'categories',
   'services',
-  'technicians',
   'schedule',
   'payments',
   'settings',
 ];
 
-const ADMIN_ONLY: Panel[] = ['customers', 'subscriptions', 'payouts'];
+const ADMIN_ONLY: Panel[] = ['customers', 'technicians', 'subscriptions', 'payouts'];
 const TECHNICIAN_ONLY: Panel[] = ['subscription'];
 
 function adminNav(isAdmin: boolean): Panel[] {
@@ -89,8 +88,10 @@ function adminNav(isAdmin: boolean): Panel[] {
   }
   const bookingsIndex = STAFF_NAV.indexOf('bookings');
   const withCustomers = [...STAFF_NAV.slice(0, bookingsIndex + 1), 'customers' as Panel, ...STAFF_NAV.slice(bookingsIndex + 1)];
-  const paymentsIndex = withCustomers.indexOf('payments');
-  return [...withCustomers.slice(0, paymentsIndex + 1), 'subscriptions', 'payouts', ...withCustomers.slice(paymentsIndex + 1)];
+  const servicesIndex = withCustomers.indexOf('services');
+  const withTechnicians = [...withCustomers.slice(0, servicesIndex + 1), 'technicians' as Panel, ...withCustomers.slice(servicesIndex + 1)];
+  const paymentsIndex = withTechnicians.indexOf('payments');
+  return [...withTechnicians.slice(0, paymentsIndex + 1), 'subscriptions', 'payouts', ...withTechnicians.slice(paymentsIndex + 1)];
 }
 
 function civilDate(iso: string | null): string {
@@ -153,7 +154,7 @@ export function AdminWorkspace({
         ) : null}
         {panel === 'categories' ? <CategoriesPanel isAdmin={isAdmin} /> : null}
         {panel === 'services' ? <ServicesPanel isAdmin={isAdmin} /> : null}
-        {panel === 'technicians' ? <StaffPanel isAdmin={isAdmin} /> : null}
+        {panel === 'technicians' && isAdmin ? <StaffPanel isAdmin={isAdmin} /> : null}
         {panel === 'schedule' ? <SchedulePanel state={settingsState} isAdmin={isAdmin} /> : null}
         {panel === 'payments' ? <PaymentsPanel isAdmin={isAdmin} /> : null}
         {panel === 'subscription' && !isAdmin ? <SubscriptionPanel embedded onAccessChanged={onSubscriptionAccessChanged} /> : null}
