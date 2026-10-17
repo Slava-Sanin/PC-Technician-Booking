@@ -12,7 +12,7 @@
     "test": "vitest run",
     "preview": "vite preview",
     "supabase": "supabase",
-    "db:push": "supabase db push",
+    "db:push": "node scripts/db-push.mjs",
     "functions:deploy": "supabase functions deploy",
     "functions:deploy:staff": "supabase functions deploy admin-set-staff",
     "email:test": "node scripts/resend-hello.mjs"

@@ -178,10 +178,13 @@ supabase functions deploy
 Миграции:
 
 ```bash
-supabase db push
+# Пароль: Dashboard → Project Settings → Database (в .env.local как SUPABASE_DB_PASSWORD)
+npm run db:push
 ```
 
-Проект уже связан с Supabase. Пароль базы в CLI может не совпадать с сохранённым; применение через Management API с токеном CLI это обходит.
+`npm run db:push` вызывает `supabase db push --linked` с паролем из `SUPABASE_DB_PASSWORD` (читает `.env.local` / `.env`). Без пароля CLI падает на `cli_login_postgres` (permission denied).
+
+Альтернатива: `supabase db push --linked -p "..."`. Если история миграций расходится с remote — `supabase migration repair`, не `--include-all` на проде без бэкапа.
 
 ## Supabase Free Plan Keep-Alive
 
