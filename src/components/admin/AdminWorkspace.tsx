@@ -1863,14 +1863,21 @@ function PaymentsPanel({ isAdmin }: { isAdmin: boolean }) {
               <span>{payment.bookings?.booking_number}</span>
               <span>{payment.bookings?.first_name} {payment.bookings?.last_name}</span>
               <span>{payment.payment_methods ? localized({ ru: payment.payment_methods.name_ru, he: payment.payment_methods.name_he, en: payment.payment_methods.name_en }, i18n.language) : payment.provider}</span>
-              <span>{formatMoney(Number(payment.amount), payment.currency, i18n.language)}</span>
-              <Badge>{t(`pay_${payment.status}`)}</Badge>
+              <span className={payment.kind === 'refund' ? 'font-semibold text-danger' : ''}>
+                {payment.kind === 'refund' ? '−' : ''}{formatMoney(Number(payment.amount), payment.currency, i18n.language)}
+                {payment.kind === 'refund' ? <span className="ms-2 text-xs font-normal text-muted">{t('payKind_refund')}</span> : null}
+              </span>
+              <Badge tone={payment.kind === 'refund' ? 'warning' : 'neutral'}>{t(`pay_${payment.status}`)}</Badge>
               {isAdmin && (payment.status === 'pending' || payment.status === 'awaiting_verification') ? (
                 <span className="flex gap-2">
-                  <Button onClick={() => void reviewPayment(payment.id, 'paid').then(refresh)}>{t('confirmPayment')}</Button>
-                  <Button variant="ghost" onClick={() => void reviewPayment(payment.id, 'failed').then(refresh)}>{t('rejectPayment')}</Button>
+                  <Button onClick={() => void reviewPayment(payment.id, 'paid').then(refresh)}>
+                    {t(payment.kind === 'refund' ? 'confirmRefund' : 'confirmPayment')}
+                  </Button>
+                  <Button variant="ghost" onClick={() => void reviewPayment(payment.id, 'failed').then(refresh)}>
+                    {t(payment.kind === 'refund' ? 'rejectRefund' : 'rejectPayment')}
+                  </Button>
                 </span>
-              ) : <span className="text-muted">{payment.paid_at ? payment.paid_at.slice(0, 10) : ''}</span>}
+              ) : <span className="text-muted">{(payment.refunded_at ?? payment.paid_at)?.slice(0, 10) ?? ''}</span>}
             </Card>
           ))}
         </div>

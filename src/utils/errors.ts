@@ -30,6 +30,8 @@ export const API_ERROR_CODES = [
   'SUBSCRIPTION_REQUIRED',
   'SUBSCRIPTION_ACTIVE',
   'SUBSCRIPTION_NOT_ACTIVE',
+  'EDIT_LIMIT_REACHED',
+  'BOOKING_NOT_EDITABLE',
 ] as const;
 
 export type ApiErrorCode = (typeof API_ERROR_CODES)[number];

@@ -665,6 +665,7 @@ export function BookingPage({ onOpenAdmin }: { onOpenAdmin: () => void }) {
                 <p>{mode ? t(`mode_${mode}`) : ''}</p>
                 <p>{date ? `${formatISODateToDisplay(date)} ${time}` : ''}</p>
                 <p className="pt-2 text-xs text-muted">{t('bookingConfirmHint')}</p>
+                <Alert tone="warning">{t('bookingEditPolicyHint')}</Alert>
               </div>
             ) : null}
 

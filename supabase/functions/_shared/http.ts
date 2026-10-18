@@ -45,6 +45,8 @@ export function statusForCode(code: string): number {
       return 402;
     case 'SUBSCRIPTION_ACTIVE':
     case 'SUBSCRIPTION_NOT_ACTIVE':
+    case 'EDIT_LIMIT_REACHED':
+    case 'BOOKING_NOT_EDITABLE':
       return 409;
     case 'RATE_LIMITED':
       return 429;

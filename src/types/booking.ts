@@ -72,7 +72,59 @@ export interface Booking {
   currency: string | null;
   payment_status: string | null;
   payment_expires_at: string | null;
+  customer_edited_at?: string | null;
   booking_services?: BookingServiceLine[];
+  payments?: BookingPaymentLine[];
+}
+
+export type PaymentKind = 'charge' | 'refund';
+
+/** Payment rows visible to the customer for their own booking. */
+export interface BookingPaymentLine {
+  id: string;
+  kind: PaymentKind;
+  amount: number | string;
+  currency: string;
+  status: PaymentStatus;
+  provider: string | null;
+  created_at: string;
+  paid_at: string | null;
+  refunded_at: string | null;
+}
+
+/** Everything the customer may change on their own booking. */
+export interface CustomerBookingEditRequest {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string;
+  address: string;
+  city: string;
+  serviceMode: ServiceMode;
+  deviceType: string;
+  operatingSystem: string;
+  deviceBrand: string;
+  deviceModel: string;
+  problemDescription: string;
+  comments: string;
+  appointmentDate: string;
+  appointmentTime: string;
+  serviceIds: string[];
+}
+
+export interface CustomerBookingEditResult {
+  changed: boolean;
+  servicesChanged?: boolean;
+  scheduleChanged?: boolean;
+  totalAmount: number | string | null;
+  previousTotalAmount?: number | string | null;
+  currency: string | null;
+  netPaid?: number | string;
+  refundAmount: number | string;
+  extraAmount: number | string;
+  status: BookingStatus;
+  paymentStatus: string | null;
+  nextEditAt: string | null;
 }
 
 export type EditableBookingField =

@@ -11,9 +11,13 @@ export const PAYMENT_STATUSES = [
 
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
+export type PaymentKind = 'charge' | 'refund';
+
 export interface PaymentRecord {
   id: string;
   booking_id: string;
+  /** 'charge' — money received; 'refund' — money owed back to the customer. */
+  kind: PaymentKind;
   payment_method_id: string | null;
   provider: string | null;
   provider_payment_id: string | null;

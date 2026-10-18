@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
-import type { Booking, BookingUpdate } from '../types/booking';
+import type { AvailabilityQuery, AvailabilityResponse, MonthAvailabilityResponse } from '../types/api';
+import type { Booking, CustomerBookingEditRequest, CustomerBookingEditResult } from '../types/booking';
 import { BookingApiError, normalizeErrorCode } from '../utils/errors';
 
 export interface CustomerProfile {
@@ -119,11 +120,38 @@ export async function cancelCustomerBooking(bookingId: string): Promise<Booking>
   return result.booking;
 }
 
-export async function updateCustomerBooking(bookingId: string, patch: BookingUpdate): Promise<Booking> {
-  const result = await invokeCustomer<{ booking: Booking }>(
+export async function updateCustomerBooking(
+  bookingId: string,
+  request: CustomerBookingEditRequest,
+): Promise<{ booking: Booking; result: CustomerBookingEditResult }> {
+  return invokeCustomer<{ booking: Booking; result: CustomerBookingEditResult }>(
     'customer-bookings',
-    { action: 'update', bookingId, ...patch },
+    { action: 'update', bookingId, ...request },
     true,
   );
-  return result.booking;
+}
+
+/** Availability for moving an own booking: its current slot is treated as free. */
+export function fetchCustomerAvailability(
+  bookingId: string,
+  date: string,
+  query: AvailabilityQuery,
+): Promise<AvailabilityResponse> {
+  return invokeCustomer<AvailabilityResponse>(
+    'customer-bookings',
+    { action: 'availability', bookingId, date, serviceIds: query.serviceIds, serviceMode: query.serviceMode },
+    true,
+  );
+}
+
+export function fetchCustomerMonthAvailability(
+  bookingId: string,
+  month: string,
+  query: AvailabilityQuery,
+): Promise<MonthAvailabilityResponse> {
+  return invokeCustomer<MonthAvailabilityResponse>(
+    'customer-bookings',
+    { action: 'availability', bookingId, month, serviceIds: query.serviceIds, serviceMode: query.serviceMode },
+    true,
+  );
 }

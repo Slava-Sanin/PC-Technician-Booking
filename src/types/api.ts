@@ -73,4 +73,6 @@ export interface MonthAvailabilityResponse {
 export interface AvailabilityQuery {
   serviceIds: string[];
   serviceMode: ServiceMode;
+  /** When set, slots are computed as if this (own) booking did not occupy its time. */
+  excludeBookingId?: string;
 }

@@ -11,6 +11,7 @@ import type { CatalogResponse, LocalizedText, PublicCategory, PublicPaymentMetho
 import type { PublicBookingConfig } from '../types/bookingSettings';
 import { PRICE_TYPES, SERVICE_MODES, type PriceType, type ServiceMode } from '../types/catalog';
 import { BookingApiError, normalizeErrorCode } from '../utils/errors';
+import { fetchCustomerAvailability, fetchCustomerMonthAvailability } from './customerService';
 
 function readErrorCode(payload: unknown): string | null {
   if (!payload || typeof payload !== 'object' || !('error' in payload)) return null;
@@ -118,6 +119,9 @@ export function fetchServiceCatalog(): Promise<CatalogResponse> {
 }
 
 export function fetchAvailability(date: string, query: AvailabilityQuery): Promise<AvailabilityResponse> {
+  if (query.excludeBookingId) {
+    return fetchCustomerAvailability(query.excludeBookingId, date, query);
+  }
   return invokePublicFunction<AvailabilityResponse>('get-availability', {
     date,
     serviceIds: query.serviceIds,
@@ -126,6 +130,9 @@ export function fetchAvailability(date: string, query: AvailabilityQuery): Promi
 }
 
 export function fetchMonthAvailability(month: string, query: AvailabilityQuery): Promise<MonthAvailabilityResponse> {
+  if (query.excludeBookingId) {
+    return fetchCustomerMonthAvailability(query.excludeBookingId, month, query);
+  }
   return invokePublicFunction<MonthAvailabilityResponse>('get-availability', {
     month,
     serviceIds: query.serviceIds,
